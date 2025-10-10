@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/crucible_datasets.svg" alt="Datasets" width="150"/>
+</p>
+
 # CrucibleDatasets
 
 **Centralized dataset management library for AI evaluation research in Elixir.**
