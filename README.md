@@ -308,5 +308,5 @@ DatasetManager integrates with other research infrastructure libraries:
 
 ## License
 
-MIT
+MIT License - see [LICENSE](https://github.com/North-Shore-AI/crucible_datasets/blob/main/LICENSE) file for details
 
