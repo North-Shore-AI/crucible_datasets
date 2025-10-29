@@ -4,6 +4,11 @@
 
 # CrucibleDatasets
 
+[![Elixir](https://img.shields.io/badge/elixir-1.14+-purple.svg)](https://elixir-lang.org)
+[![Hex.pm](https://img.shields.io/hexpm/v/crucible_datasets.svg)](https://hex.pm/packages/crucible_datasets)
+[![Documentation](https://img.shields.io/badge/docs-hexdocs-purple.svg)](https://hexdocs.pm/crucible_datasets)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/North-Shore-AI/crucible_datasets/blob/main/LICENSE)
+
 **Centralized dataset management library for AI evaluation research in Elixir.**
 
 CrucibleDatasets provides a unified interface for loading, caching, evaluating, and sampling benchmark datasets (MMLU, HumanEval, GSM8K) with support for versioning, reproducible evaluation, and custom datasets.
