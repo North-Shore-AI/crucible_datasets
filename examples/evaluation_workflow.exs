@@ -145,7 +145,7 @@ IO.puts("Running 3-fold cross-validation...")
 cv_results =
   folds
   |> Enum.with_index()
-  |> Enum.map(fn {{train_fold, test_fold}, fold_idx} ->
+  |> Enum.map(fn {{_train_fold, test_fold}, fold_idx} ->
     # Simulate predictions for this fold
     fold_predictions =
       Enum.map(test_fold.items, fn item ->
