@@ -26,14 +26,7 @@ defmodule CrucibleDatasets.Dataset do
           name: String.t(),
           version: String.t(),
           items: [item()],
-          metadata: %{
-            source: String.t(),
-            license: String.t(),
-            domain: String.t(),
-            total_items: non_neg_integer(),
-            loaded_at: DateTime.t(),
-            checksum: String.t()
-          }
+          metadata: map()
         }
 
   @enforce_keys [:name, :version, :items, :metadata]

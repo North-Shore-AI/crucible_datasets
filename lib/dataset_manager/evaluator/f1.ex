@@ -78,8 +78,6 @@ defmodule CrucibleDatasets.Evaluator.F1 do
     |> MapSet.new()
   end
 
-  defp tokenize(_), do: MapSet.new()
-
   # Extract text from map (check common answer fields)
   defp extract_text(map) when is_map(map) do
     Map.get(map, :answer) || Map.get(map, "answer") ||

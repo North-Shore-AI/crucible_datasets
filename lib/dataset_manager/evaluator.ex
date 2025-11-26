@@ -9,7 +9,7 @@ defmodule CrucibleDatasets.Evaluator do
   """
 
   alias CrucibleDatasets.{Dataset, EvaluationResult, Loader}
-  alias CrucibleDatasets.Evaluator.{ExactMatch, F1}
+  alias CrucibleDatasets.Evaluator.{ExactMatch, F1, BLEU, ROUGE}
 
   @type prediction :: %{
           id: String.t(),
@@ -51,7 +51,7 @@ defmodule CrucibleDatasets.Evaluator do
 
     with {:ok, dataset} <- load_dataset(opts),
          :ok <- validate_predictions(predictions, dataset),
-         {:ok, item_results} <- evaluate_items(predictions, dataset, metrics),
+         {:ok, item_results} <- evaluate_items(predictions, dataset, metrics, opts),
          {:ok, aggregated} <- aggregate_metrics(item_results, metrics) do
       duration_ms = System.monotonic_time(:millisecond) - start_time
 
@@ -120,24 +120,24 @@ defmodule CrucibleDatasets.Evaluator do
     end
   end
 
-  defp evaluate_items(predictions, dataset, metrics) do
+  defp evaluate_items(predictions, dataset, metrics, opts) do
     # Create lookup map for expected values
     expected_map = Map.new(dataset.items, fn item -> {item.id, item} end)
 
     item_results =
       Enum.map(predictions, fn pred ->
         expected_item = Map.fetch!(expected_map, pred.id)
-        evaluate_single_item(pred, expected_item, metrics)
+        evaluate_single_item(pred, expected_item, metrics, opts)
       end)
 
     {:ok, item_results}
   end
 
-  defp evaluate_single_item(prediction, expected_item, metrics) do
+  defp evaluate_single_item(prediction, expected_item, metrics, opts) do
     metric_scores =
       metrics
       |> Enum.map(fn metric ->
-        score = compute_metric(metric, prediction.predicted, expected_item.expected)
+        score = compute_metric(metric, prediction.predicted, expected_item.expected, opts)
         {metric, score}
       end)
       |> Map.new()
@@ -155,19 +155,58 @@ defmodule CrucibleDatasets.Evaluator do
     }
   end
 
-  defp compute_metric(:exact_match, predicted, expected) do
+  defp compute_metric(:exact_match, predicted, expected, _opts) do
     ExactMatch.compute(predicted, expected)
   end
 
-  defp compute_metric(:f1, predicted, expected) do
+  defp compute_metric(:f1, predicted, expected, _opts) do
     F1.compute(predicted, expected)
   end
 
-  defp compute_metric(custom_metric, predicted, expected) when is_function(custom_metric, 2) do
+  defp compute_metric(:bleu, predicted, expected, opts) do
+    bleu_opts = Keyword.get(opts, :bleu_opts, [])
+    BLEU.compute(predicted, expected, bleu_opts)
+  end
+
+  defp compute_metric(:rouge, predicted, expected, opts) do
+    rouge_opts = Keyword.get(opts, :rouge_opts, [])
+    rouge_scores = ROUGE.compute(predicted, expected, rouge_opts)
+    get_in(rouge_scores, [:rougel, :f1]) || 0.0
+  end
+
+  defp compute_metric(:rouge1, predicted, expected, opts) do
+    rouge_opts = Keyword.get(opts, :rouge_opts, [])
+
+    rouge_scores =
+      ROUGE.compute(predicted, expected, Keyword.merge([variants: [:rouge1]], rouge_opts))
+
+    get_in(rouge_scores, [:rouge1, :f1]) || 0.0
+  end
+
+  defp compute_metric(:rouge2, predicted, expected, opts) do
+    rouge_opts = Keyword.get(opts, :rouge_opts, [])
+
+    rouge_scores =
+      ROUGE.compute(predicted, expected, Keyword.merge([variants: [:rouge2]], rouge_opts))
+
+    get_in(rouge_scores, [:rouge2, :f1]) || 0.0
+  end
+
+  defp compute_metric(:rougel, predicted, expected, opts) do
+    rouge_opts = Keyword.get(opts, :rouge_opts, [])
+
+    rouge_scores =
+      ROUGE.compute(predicted, expected, Keyword.merge([variants: [:rougel]], rouge_opts))
+
+    get_in(rouge_scores, [:rougel, :f1]) || 0.0
+  end
+
+  defp compute_metric(custom_metric, predicted, expected, _opts)
+       when is_function(custom_metric, 2) do
     custom_metric.(predicted, expected)
   end
 
-  defp compute_metric(_unknown, _predicted, _expected), do: 0.0
+  defp compute_metric(_unknown, _predicted, _expected, _opts), do: 0.0
 
   defp aggregate_metrics(item_results, metrics) do
     aggregated =

@@ -136,15 +136,10 @@ defmodule CrucibleDatasets.Loader.GSM8K do
     |> List.last()
     |> String.trim()
     |> String.replace(",", "")
+    |> Integer.parse()
     |> case do
-      text when is_binary(text) ->
-        case Integer.parse(text) do
-          {num, _} -> num
-          :error -> 0
-        end
-
-      _ ->
-        0
+      {num, _} -> num
+      :error -> 0
     end
   end
 

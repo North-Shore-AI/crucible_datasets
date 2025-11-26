@@ -56,12 +56,17 @@ defmodule CrucibleDatasets.Loader do
         with {:ok, source_spec} <- resolve_source(dataset_name, opts),
              {:ok, dataset} <- fetch_and_parse(source_spec, dataset_name, opts),
              {:ok, validated} <- Dataset.validate(dataset) do
-          # Cache the dataset
-          if use_cache do
-            Cache.put(cache_key, validated)
-          end
+          cache_result =
+            if use_cache do
+              Cache.put(cache_key, validated)
+            else
+              :ok
+            end
 
-          {:ok, maybe_sample(validated, sample_size)}
+          case cache_result do
+            :ok -> {:ok, maybe_sample(validated, sample_size)}
+            {:error, reason} -> {:error, reason}
+          end
         end
     end
   end

@@ -36,7 +36,7 @@ Add `dataset_manager` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:crucible_datasets, "~> 0.1.0"}
+    {:crucible_datasets, "~> 0.2.0"}
   ]
 end
 ```
@@ -263,6 +263,14 @@ cd apps/dataset_manager
 mix test
 ```
 
+## Static Analysis
+
+Run Dialyzer (first run builds the PLT and may take a few minutes):
+
+```bash
+mix dialyzer
+```
+
 ## Architecture
 
 ```
@@ -295,6 +303,16 @@ datasets/
 ├── humaneval/
 └── gsm8k/
 ```
+
+## Result Storage Directory
+
+Evaluation results are stored by default in `~/.elixir_ai_research/results/`. To change the location (e.g., per-project storage, CI, or tests), set `CRUCIBLE_DATASETS_RESULTS_DIR` to an absolute or relative path:
+
+```bash
+export CRUCIBLE_DATASETS_RESULTS_DIR=/tmp/crucible_results
+```
+
+All `CrucibleDatasets.save_result/2`, `load_result/1`, and `query_results/1` calls will use this directory when set.
 
 ## Integration with Research Infrastructure
 
@@ -1003,4 +1021,3 @@ MIT License - see [LICENSE](https://github.com/North-Shore-AI/crucible_datasets/
 - Advanced sampling (stratified, k-fold cross-validation)
 - Custom dataset and metric support
 - Complete documentation and examples
-

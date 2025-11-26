@@ -22,7 +22,7 @@ defmodule CrucibleDatasets.Cache do
   @max_cache_size_mb 10_000
   @default_ttl_days 30
 
-  @type cache_key :: {atom(), String.t()} | String.t()
+  @type cache_key :: {atom(), String.t() | atom()} | String.t() | atom()
 
   @doc """
   Get cached dataset if available and valid.
@@ -202,6 +202,7 @@ defmodule CrucibleDatasets.Cache do
     File.write(metadata_path, Jason.encode!(metadata, pretty: true))
   end
 
+  @spec update_manifest(cache_key(), Dataset.t()) :: :ok | {:error, term()}
   defp update_manifest(cache_key, dataset) do
     manifest_path = Path.join(@cache_dir, "manifest.json")
 
@@ -232,13 +233,22 @@ defmodule CrucibleDatasets.Cache do
 
     updated = Map.put(existing, "datasets", datasets)
 
-    File.mkdir_p(@cache_dir)
-    File.write(manifest_path, Jason.encode!(updated, pretty: true))
+    with :ok <- File.mkdir_p(@cache_dir),
+         :ok <- File.write(manifest_path, Jason.encode!(updated, pretty: true)) do
+      :ok
+    end
   end
 
-  defp cache_key_to_string({_type, name}), do: to_string(name)
-  defp cache_key_to_string(name) when is_atom(name), do: Atom.to_string(name)
-  defp cache_key_to_string(name) when is_binary(name), do: name
+  defp cache_key_to_string(cache_key) do
+    if is_tuple(cache_key) do
+      cache_key |> elem(1) |> to_string()
+    else
+      case cache_key do
+        name when is_atom(name) -> Atom.to_string(name)
+        name when is_binary(name) -> name
+      end
+    end
+  end
 
   defp valid_cache?(metadata) do
     case DateTime.from_iso8601(metadata["cached_at"]) do

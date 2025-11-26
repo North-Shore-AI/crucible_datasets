@@ -45,7 +45,7 @@ defmodule CrucibleDatasets do
       )
   """
 
-  alias CrucibleDatasets.{Loader, Evaluator, Sampler, Cache}
+  alias CrucibleDatasets.{Loader, Evaluator, Sampler, Cache, Registry, ResultStore, Exporter}
 
   # Delegates for main API
 
@@ -118,4 +118,73 @@ defmodule CrucibleDatasets do
   See `CrucibleDatasets.Loader.invalidate_cache/1` for full documentation.
   """
   defdelegate invalidate_cache(dataset_name), to: Loader
+
+  # Registry delegates
+
+  @doc """
+  List all available datasets.
+
+  See `CrucibleDatasets.Registry.list_available/0` for full documentation.
+  """
+  defdelegate list_available(), to: Registry
+
+  @doc """
+  Get metadata for a dataset.
+
+  See `CrucibleDatasets.Registry.get_metadata/1` for full documentation.
+  """
+  defdelegate get_metadata(dataset_name), to: Registry
+
+  # Result persistence delegates
+
+  @doc """
+  Save evaluation result to persistent storage.
+
+  See `CrucibleDatasets.ResultStore.save/2` for full documentation.
+  """
+  defdelegate save_result(result, opts \\ []), to: ResultStore, as: :save
+
+  @doc """
+  Load evaluation result by ID.
+
+  See `CrucibleDatasets.ResultStore.load/1` for full documentation.
+  """
+  defdelegate load_result(result_id), to: ResultStore, as: :load
+
+  @doc """
+  Query evaluation results with filters.
+
+  See `CrucibleDatasets.ResultStore.query/1` for full documentation.
+  """
+  defdelegate query_results(filters \\ []), to: ResultStore, as: :query
+
+  # Export delegates
+
+  @doc """
+  Export results to CSV format.
+
+  See `CrucibleDatasets.Exporter.to_csv/3` for full documentation.
+  """
+  defdelegate export_csv(results, output_path, opts \\ []), to: Exporter, as: :to_csv
+
+  @doc """
+  Export results to JSON Lines format.
+
+  See `CrucibleDatasets.Exporter.to_jsonl/2` for full documentation.
+  """
+  defdelegate export_jsonl(results, output_path), to: Exporter, as: :to_jsonl
+
+  @doc """
+  Generate markdown report from results.
+
+  See `CrucibleDatasets.Exporter.to_markdown/2` for full documentation.
+  """
+  defdelegate export_markdown(results, opts \\ []), to: Exporter, as: :to_markdown
+
+  @doc """
+  Generate HTML report from results.
+
+  See `CrucibleDatasets.Exporter.to_html/2` for full documentation.
+  """
+  defdelegate export_html(results, opts \\ []), to: Exporter, as: :to_html
 end
