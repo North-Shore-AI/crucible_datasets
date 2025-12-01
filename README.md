@@ -31,12 +31,12 @@ CrucibleDatasets provides a unified interface for loading, caching, evaluating, 
 
 ## Installation
 
-Add `dataset_manager` to your list of dependencies in `mix.exs`:
+Add `crucible_datasets` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
   [
-    {:crucible_datasets, "~> 0.2.0"}
+    {:crucible_datasets, "~> 0.3.0"}
   ]
 end
 ```
@@ -76,6 +76,30 @@ end)
 IO.puts("Accuracy: #{results.accuracy * 100}%")
 # => Accuracy: 100.0%
 ```
+
+## DatasetRef Integration
+
+CrucibleDatasets v0.3.0+ supports `CrucibleIR.DatasetRef` for unified dataset references across the Crucible framework:
+
+```elixir
+alias CrucibleIR.DatasetRef
+
+# Create a DatasetRef
+ref = %DatasetRef{
+  name: :mmlu_stem,
+  split: :train,
+  options: [sample_size: 100]
+}
+
+# Load dataset using DatasetRef
+{:ok, dataset} = CrucibleDatasets.load(ref)
+
+# DatasetRef works seamlessly with all dataset operations
+predictions = generate_predictions(dataset)
+{:ok, results} = CrucibleDatasets.evaluate(predictions, dataset: dataset)
+```
+
+This enables seamless integration with other Crucible components like `crucible_harness`, `crucible_ensemble`, and `crucible_bench`.
 
 ## Usage Examples
 

@@ -7,10 +7,12 @@ defmodule CrucibleDatasets.Loader do
   - GitHub repositories
   - Local files
   - HTTP URLs
+  - CrucibleIR.DatasetRef structs
   """
 
   alias CrucibleDatasets.{Cache, Dataset}
   alias CrucibleDatasets.Loader.{MMLU, HumanEval, GSM8K}
+  alias CrucibleIR.DatasetRef
 
   @dataset_sources %{
     mmlu: {:huggingface, "cais/mmlu", "all"},
@@ -39,9 +41,22 @@ defmodule CrucibleDatasets.Loader do
 
       iex> CrucibleDatasets.Loader.load("custom", source: "path/to/data.jsonl")
       {:ok, %Dataset{name: "custom", ...}}
+
+      iex> ref = %CrucibleIR.DatasetRef{name: :mmlu_stem, split: :train, options: [sample_size: 100]}
+      iex> CrucibleDatasets.Loader.load(ref)
+      {:ok, %Dataset{name: "mmlu_stem", items: [...], ...}}
   """
-  @spec load(atom() | String.t(), keyword()) :: {:ok, Dataset.t()} | {:error, term()}
-  def load(dataset_name, opts \\ []) do
+  @spec load(atom() | String.t() | DatasetRef.t(), keyword()) ::
+          {:ok, Dataset.t()} | {:error, term()}
+  def load(dataset_or_ref, opts \\ [])
+
+  def load(%DatasetRef{} = ref, _opts) do
+    # Convert DatasetRef to load options
+    opts = ref.options || []
+    load(ref.name, opts)
+  end
+
+  def load(dataset_name, opts) when is_atom(dataset_name) or is_binary(dataset_name) do
     use_cache = Keyword.get(opts, :cache, true)
     sample_size = Keyword.get(opts, :sample_size)
 

@@ -8,11 +8,16 @@ defmodule CrucibleDatasets do
   - Evaluation with multiple metrics
   - Dataset sampling and splitting
   - Custom dataset integration
+  - Integration with CrucibleIR.DatasetRef
 
   ## Quick Start
 
       # Load a dataset
       {:ok, dataset} = CrucibleDatasets.load(:mmlu_stem, sample_size: 100)
+
+      # Load using DatasetRef (from crucible_ir)
+      ref = %CrucibleIR.DatasetRef{name: :mmlu_stem, split: :train, options: [sample_size: 100]}
+      {:ok, dataset} = CrucibleDatasets.load(ref)
 
       # Create predictions
       predictions = [

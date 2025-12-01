@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2025-11-26
+
+### Added
+- **CrucibleIR Integration:**
+  - Added `crucible_ir` ~> 0.1.1 dependency for intermediate representation support
+  - Added support for `CrucibleIR.DatasetRef` in `load/1` function
+  - DatasetRef provides unified dataset references across Crucible framework components
+  - Seamless integration: `CrucibleDatasets.load(%DatasetRef{name: :mmlu_stem, ...})`
+- **Enhanced Documentation:**
+  - Updated module documentation with DatasetRef usage examples
+  - Added comprehensive test suite for DatasetRef functionality (220+ test cases)
+  - Updated README with DatasetRef integration examples
+
+### Changed
+- Version bump from 0.2.0 to 0.3.0
+- `CrucibleDatasets.Loader.load/2` now accepts `DatasetRef` struct in addition to atoms and strings
+- Enhanced type specifications to include `DatasetRef.t()` in function signatures
+
 ## [0.2.0] - 2025-11-25
 
 ### Added
