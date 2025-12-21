@@ -71,8 +71,6 @@ defmodule CrucibleDatasets.Loader.Chat do
     sample_size = Keyword.get(opts, :sample_size)
     token = Keyword.get(opts, :token)
 
-    Logger.debug("Loading #{dataset_name} #{split} split from HuggingFace...")
-
     case HuggingFace.fetch(repo_id, split: split, token: token) do
       {:ok, raw_data} ->
         items = parse_chat_data(raw_data, dataset_name)
@@ -95,8 +93,15 @@ defmodule CrucibleDatasets.Loader.Chat do
         {:ok, dataset}
 
       {:error, reason} ->
-        Logger.error("Failed to load #{dataset_name} from HuggingFace: #{inspect(reason)}")
-        {:error, {:huggingface_fetch_failed, reason}}
+        if Application.get_env(:crucible_datasets, :fallback_to_synthetic, false) do
+          Logger.warning(
+            "Failed to load #{dataset_name} from HuggingFace: #{inspect(reason)}, falling back to synthetic"
+          )
+
+          load_synthetic(dataset_name, opts)
+        else
+          {:error, {:huggingface_fetch_failed, reason}}
+        end
     end
   end
 

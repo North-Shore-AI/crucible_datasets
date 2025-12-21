@@ -13,23 +13,23 @@ defmodule CrucibleDatasets.Loader.ChatTest do
     end
   end
 
-  describe "load/2 with synthetic data" do
-    test "loads synthetic chat data" do
-      {:ok, dataset} = Chat.load(:tulu3_sft, synthetic: true)
+  describe "load/2" do
+    # Use no_robots for tests - it's a smaller dataset (1 file vs 6 for tulu3_sft)
+    test "loads chat data" do
+      {:ok, dataset} = Chat.load(:no_robots, TestHelper.data_opts())
 
-      assert dataset.name == "tulu3_sft"
+      assert dataset.name == "no_robots"
       assert length(dataset.items) > 0
-      assert dataset.metadata.source == "synthetic"
     end
 
     test "respects sample_size option" do
-      {:ok, dataset} = Chat.load(:tulu3_sft, synthetic: true, sample_size: 5)
+      {:ok, dataset} = Chat.load(:no_robots, TestHelper.data_opts(sample_size: 5))
 
       assert length(dataset.items) == 5
     end
 
-    test "synthetic items have correct structure" do
-      {:ok, dataset} = Chat.load(:no_robots, synthetic: true, sample_size: 1)
+    test "items have correct structure" do
+      {:ok, dataset} = Chat.load(:no_robots, TestHelper.data_opts(sample_size: 1))
 
       first = hd(dataset.items)
       assert is_binary(first.id)

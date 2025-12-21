@@ -14,23 +14,22 @@ defmodule CrucibleDatasets.Loader.PreferenceTest do
     end
   end
 
-  describe "load/2 with synthetic data" do
-    test "loads synthetic preference data" do
-      {:ok, dataset} = Preference.load(:hh_rlhf, synthetic: true)
+  describe "load/2" do
+    test "loads preference data" do
+      {:ok, dataset} = Preference.load(:hh_rlhf, TestHelper.data_opts())
 
       assert dataset.name == "hh_rlhf"
       assert length(dataset.items) > 0
-      assert dataset.metadata.source == "synthetic"
     end
 
     test "respects sample_size option" do
-      {:ok, dataset} = Preference.load(:helpsteer3, synthetic: true, sample_size: 5)
+      {:ok, dataset} = Preference.load(:helpsteer3, TestHelper.data_opts(sample_size: 5))
 
       assert length(dataset.items) == 5
     end
 
-    test "synthetic items have correct structure" do
-      {:ok, dataset} = Preference.load(:ultrafeedback, synthetic: true, sample_size: 1)
+    test "items have correct structure" do
+      {:ok, dataset} = Preference.load(:ultrafeedback, TestHelper.data_opts(sample_size: 1))
 
       first = hd(dataset.items)
       assert is_binary(first.id)

@@ -35,6 +35,7 @@ defmodule CrucibleDatasets.Loader.Preference do
     helpsteer3: %{
       repo_id: "nvidia/HelpSteer3",
       parser: :helpsteer,
+      config: "preference",
       description: "NVIDIA HelpSteer3 dataset"
     },
     helpsteer2: %{
@@ -43,19 +44,19 @@ defmodule CrucibleDatasets.Loader.Preference do
       description: "NVIDIA HelpSteer2 dataset"
     },
     ultrafeedback: %{
-      repo_id: "openbmb/UltraFeedback",
+      repo_id: "argilla/ultrafeedback-binarized-preferences",
       parser: :ultrafeedback,
-      description: "UltraFeedback preference dataset"
+      description: "UltraFeedback binarized preference dataset"
     },
     arena_140k: %{
-      repo_id: "lmarena-ai/arena-hard-v0.1",
+      repo_id: "lmarena-ai/arena-human-preference-140k",
       parser: :arena,
-      description: "LMArena Arena Hard dataset"
+      description: "LMArena Arena Human Preference 140K dataset"
     },
     tulu3_preference: %{
-      repo_id: "allenai/tulu-3-preference-mixture",
+      repo_id: "allenai/llama-3.1-tulu-3-8b-preference-mixture",
       parser: :tulu_preference,
-      description: "Tulu 3 Preference Mixture"
+      description: "Tulu 3.8B Preference Mixture"
     }
   }
 
@@ -92,14 +93,17 @@ defmodule CrucibleDatasets.Loader.Preference do
     end
   end
 
-  defp load_from_huggingface(dataset_name, %{repo_id: repo_id, parser: parser}, opts) do
+  defp load_from_huggingface(dataset_name, dataset_info, opts) do
+    %{repo_id: repo_id, parser: parser} = dataset_info
+    config = Map.get(dataset_info, :config)
     split = Keyword.get(opts, :split, "train") |> to_string()
     sample_size = Keyword.get(opts, :sample_size)
     token = Keyword.get(opts, :token)
 
-    Logger.debug("Loading #{dataset_name} #{split} split from HuggingFace...")
+    fetch_opts = [split: split, token: token]
+    fetch_opts = if config, do: Keyword.put(fetch_opts, :config, config), else: fetch_opts
 
-    case HuggingFace.fetch(repo_id, split: split, token: token) do
+    case HuggingFace.fetch(repo_id, fetch_opts) do
       {:ok, raw_data} ->
         items = parse_preference_data(raw_data, parser)
 
@@ -121,8 +125,15 @@ defmodule CrucibleDatasets.Loader.Preference do
         {:ok, dataset}
 
       {:error, reason} ->
-        Logger.error("Failed to load #{dataset_name} from HuggingFace: #{inspect(reason)}")
-        {:error, {:huggingface_fetch_failed, reason}}
+        if Application.get_env(:crucible_datasets, :fallback_to_synthetic, false) do
+          Logger.warning(
+            "Failed to load #{dataset_name} from HuggingFace: #{inspect(reason)}, falling back to synthetic"
+          )
+
+          load_synthetic(dataset_name, opts)
+        else
+          {:error, {:huggingface_fetch_failed, reason}}
+        end
     end
   end
 
@@ -137,6 +148,8 @@ defmodule CrucibleDatasets.Loader.Preference do
     end)
     |> Enum.reject(&is_nil/1)
   end
+
+  # All parse_item/3 clauses grouped together
 
   defp parse_item(item, :hh_rlhf, idx) do
     with {:ok, comparison} <- Comparison.from_hh_rlhf(item) do
@@ -157,8 +170,29 @@ defmodule CrucibleDatasets.Loader.Preference do
   end
 
   defp parse_item(item, :helpsteer, idx) do
-    with {:ok, comparison} <- Comparison.from_helpsteer(item),
-         {:ok, label} <- LabeledComparison.from_label(comparison.metadata[:label] || "A") do
+    # HelpSteer3 uses context, response1, response2, overall_preference
+    context = item["context"] || []
+    response1 = item["response1"] || ""
+    response2 = item["response2"] || ""
+    preference = item["overall_preference"]
+
+    # Skip ties (overall_preference == 0)
+    if preference == 0 do
+      {:error, :tie}
+    else
+      # Extract prompt from context (first user message)
+      prompt = extract_helpsteer_prompt(context)
+      comparison = Comparison.new(prompt, response1, response2, %{source: :helpsteer3})
+
+      # overall_preference < 0 means response1 is better (A)
+      # overall_preference > 0 means response2 is better (B)
+      label =
+        if is_number(preference) and preference < 0 do
+          LabeledComparison.new(:a)
+        else
+          LabeledComparison.new(:b)
+        end
+
       {:ok,
        %{
          id: "helpsteer_#{idx}",
@@ -167,7 +201,8 @@ defmodule CrucibleDatasets.Loader.Preference do
          },
          expected: label,
          metadata: %{
-           source: "helpsteer"
+           source: "helpsteer3",
+           overall_preference: preference
          }
        }}
     end
@@ -200,52 +235,67 @@ defmodule CrucibleDatasets.Loader.Preference do
   end
 
   defp parse_item(item, :ultrafeedback, idx) do
-    with {:ok, comparison} <- Comparison.from_ultrafeedback(item) do
-      # UltraFeedback: best response is always :a
-      label = LabeledComparison.new(:a)
+    # UltraFeedback (argilla/ultrafeedback-binarized-preferences) format
+    instruction = item["instruction"] || item["prompt"] || ""
+    chosen_response = item["chosen_response"] || ""
+    rejected_response = item["rejected_response"] || ""
 
-      {:ok,
-       %{
-         id: "ultrafeedback_#{idx}",
-         input: %{
-           comparison: comparison
-         },
-         expected: label,
-         metadata: comparison.metadata
-       }}
-    end
-  end
+    comparison =
+      Comparison.new(instruction, chosen_response, rejected_response, %{source: :ultrafeedback})
 
-  defp parse_item(item, :arena, idx) do
-    # Arena format: has prompt, answer_a, answer_b, winner
-    prompt = item["prompt"] || item["question"]
-    answer_a = item["answer_a"] || item["response_a"]
-    answer_b = item["answer_b"] || item["response_b"]
-    winner = item["winner"] || item["label"]
-
-    comparison = Comparison.new(prompt, answer_a, answer_b, %{source: :arena})
-
-    label =
-      case winner do
-        "model_a" -> LabeledComparison.new(:a)
-        "model_b" -> LabeledComparison.new(:b)
-        "tie" -> LabeledComparison.new(:tie)
-        _ -> nil
-      end
+    # In binarized format, chosen is always better (A)
+    label = LabeledComparison.new(:a)
 
     {:ok,
      %{
-       id: "arena_#{idx}",
+       id: "ultrafeedback_#{idx}",
        input: %{
          comparison: comparison
        },
        expected: label,
        metadata: %{
-         source: "arena",
-         model_a: item["model_a"],
-         model_b: item["model_b"]
+         source: "ultrafeedback",
+         chosen_model: item["chosen_model"],
+         rejected_model: item["rejected_model"]
        }
      }}
+  end
+
+  defp parse_item(item, :arena, idx) do
+    # Arena format uses conversation_a and conversation_b (full conversations)
+    winner = item["winner"]
+    conversation_a = item["conversation_a"] || []
+    conversation_b = item["conversation_b"] || []
+
+    # Skip ties or invalid winners
+    unless winner in ["model_a", "model_b"] do
+      {:error, :invalid_winner}
+    else
+      # Extract prompt from first user message in conversation_a
+      prompt = extract_arena_prompt(conversation_a)
+
+      comparison = Comparison.new(prompt, conversation_a, conversation_b, %{source: :arena})
+
+      label =
+        case winner do
+          "model_a" -> LabeledComparison.new(:a)
+          "model_b" -> LabeledComparison.new(:b)
+        end
+
+      {:ok,
+       %{
+         id: "arena_#{idx}",
+         input: %{
+           comparison: comparison
+         },
+         expected: label,
+         metadata: %{
+           source: "arena",
+           model_a: item["model_a"],
+           model_b: item["model_b"]
+         }
+       }}
+    end
   end
 
   defp parse_item(item, :tulu_preference, idx) do
@@ -275,6 +325,46 @@ defmodule CrucibleDatasets.Loader.Preference do
        }
      }}
   end
+
+  # Helper functions for parsing
+
+  defp extract_helpsteer_prompt(context) when is_list(context) do
+    # Context is a conversation list, find first user message
+    context
+    |> Enum.find(fn msg -> msg["role"] == "user" end)
+    |> case do
+      nil -> ""
+      msg -> msg["content"] || ""
+    end
+  end
+
+  defp extract_helpsteer_prompt(_), do: ""
+
+  defp extract_arena_prompt(conversation) when is_list(conversation) do
+    # Find first user message content
+    conversation
+    |> Enum.find(fn msg -> msg["role"] == "user" end)
+    |> case do
+      nil -> ""
+      msg -> extract_content_text(msg["content"])
+    end
+  end
+
+  defp extract_arena_prompt(_), do: ""
+
+  defp extract_content_text(content) when is_binary(content), do: content
+
+  defp extract_content_text(content) when is_list(content) do
+    # Arena uses {"type": "text", "text": "..."} format
+    content
+    |> Enum.filter(fn item -> is_map(item) and item["type"] == "text" end)
+    |> Enum.map(fn item -> item["text"] || "" end)
+    |> Enum.join(" ")
+  end
+
+  defp extract_content_text(_), do: ""
+
+  # Synthetic data loading
 
   defp load_synthetic(dataset_name, opts) do
     sample_size = Keyword.get(opts, :sample_size, 20)

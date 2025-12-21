@@ -52,8 +52,6 @@ defmodule CrucibleDatasets.Loader.GSM8K do
     sample_size = Keyword.get(opts, :sample_size)
     token = Keyword.get(opts, :token)
 
-    Logger.debug("Loading GSM8K #{split} split from HuggingFace...")
-
     case HuggingFace.fetch(@repo_id, split: split, config: config, token: token) do
       {:ok, raw_data} ->
         items = parse_huggingface_data(raw_data)
@@ -77,8 +75,15 @@ defmodule CrucibleDatasets.Loader.GSM8K do
         {:ok, dataset}
 
       {:error, reason} ->
-        Logger.error("Failed to load GSM8K from HuggingFace: #{inspect(reason)}")
-        {:error, {:huggingface_fetch_failed, reason}}
+        if Application.get_env(:crucible_datasets, :fallback_to_synthetic, false) do
+          Logger.warning(
+            "Failed to load GSM8K from HuggingFace: #{inspect(reason)}, falling back to synthetic"
+          )
+
+          load_synthetic(opts)
+        else
+          {:error, {:huggingface_fetch_failed, reason}}
+        end
     end
   end
 
@@ -93,9 +98,11 @@ defmodule CrucibleDatasets.Loader.GSM8K do
         input: %{
           question: item["question"]
         },
-        expected: extract_numerical_answer(answer_text),
+        expected: %{
+          answer: extract_numerical_answer(answer_text),
+          reasoning: answer_text
+        },
         metadata: %{
-          reasoning: answer_text,
           complexity: count_steps(answer_text),
           difficulty: estimate_difficulty(answer_text)
         }

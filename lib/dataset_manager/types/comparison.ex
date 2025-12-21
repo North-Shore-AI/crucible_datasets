@@ -145,8 +145,6 @@ defmodule CrucibleDatasets.Types.Comparison do
     |> Enum.join("\n\n")
   end
 
-  defp extract_prompt(prompt) when is_binary(prompt), do: prompt
-
   defp sort_by_score(responses) do
     Enum.sort_by(responses, fn r ->
       score = r["score"] || r["overall_score"] || 0

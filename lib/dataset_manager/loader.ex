@@ -50,9 +50,10 @@ defmodule CrucibleDatasets.Loader do
           {:ok, Dataset.t()} | {:error, term()}
   def load(dataset_or_ref, opts \\ [])
 
-  def load(%DatasetRef{} = ref, _opts) do
-    # Convert DatasetRef to load options
-    opts = ref.options || []
+  def load(%DatasetRef{} = ref, extra_opts) do
+    # Convert DatasetRef to load options, merging with any extra opts
+    ref_opts = ref.options || []
+    opts = Keyword.merge(ref_opts, extra_opts)
     load(ref.name, opts)
   end
 

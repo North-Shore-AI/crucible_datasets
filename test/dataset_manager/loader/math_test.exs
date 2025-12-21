@@ -36,23 +36,22 @@ defmodule CrucibleDatasets.Loader.MathTest do
     end
   end
 
-  describe "load/2 with synthetic data" do
-    test "loads synthetic math data" do
-      {:ok, dataset} = Math.load(:math_500, synthetic: true)
+  describe "load/2" do
+    test "loads math data" do
+      {:ok, dataset} = Math.load(:math_500, TestHelper.data_opts())
 
       assert dataset.name == "math_500"
       assert length(dataset.items) > 0
-      assert dataset.metadata.source == "synthetic"
     end
 
     test "respects sample_size option" do
-      {:ok, dataset} = Math.load(:hendrycks_math, synthetic: true, sample_size: 5)
+      {:ok, dataset} = Math.load(:hendrycks_math, TestHelper.data_opts(sample_size: 5))
 
       assert length(dataset.items) == 5
     end
 
-    test "synthetic items have correct structure" do
-      {:ok, dataset} = Math.load(:math_500, synthetic: true, sample_size: 1)
+    test "items have correct structure" do
+      {:ok, dataset} = Math.load(:math_500, TestHelper.data_opts(sample_size: 1))
 
       first = hd(dataset.items)
       assert is_binary(first.id)

@@ -121,22 +121,27 @@ defmodule CrucibleDatasets.Types.Conversation do
     end
   end
 
-  # Parse HH-RLHF style format: "Human: ... Assistant: ... Human: ..."
+  # Parse HH-RLHF style format: "Human: ... Assistant: ..." or "H: ... A: ..."
   defp parse_hh_format(text) do
-    # Split on Human:/Assistant: markers
+    # Split on Human:/Assistant:/H:/A: markers (common HH-RLHF formats)
+    # Handles both "\n\nHuman:" and "Human:" at line start
     text
-    |> String.split(~r/(?:Human:|Assistant:)/, include_captures: true, trim: true)
+    |> String.split(~r/(?:\n*(?:Human:|Assistant:|H:|A:))/, include_captures: true, trim: true)
     |> Enum.chunk_every(2)
     |> Enum.flat_map(fn
-      ["Human:", content] ->
-        [Message.new(:user, String.trim(content))]
+      [marker, content] ->
+        marker_clean = String.trim(marker)
 
-      ["Assistant:", content] ->
-        [Message.new(:assistant, String.trim(content))]
+        cond do
+          marker_clean in ["Human:", "H:"] ->
+            [Message.new(:user, String.trim(content))]
 
-      [marker, content] when marker in ["Human:", "Assistant:"] ->
-        role = if marker == "Human:", do: :user, else: :assistant
-        [Message.new(role, String.trim(content))]
+          marker_clean in ["Assistant:", "A:"] ->
+            [Message.new(:assistant, String.trim(content))]
+
+          true ->
+            []
+        end
 
       _ ->
         []

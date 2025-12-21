@@ -2,19 +2,23 @@ defmodule CrucibleDatasets.Fetcher.HuggingFace do
   @moduledoc """
   HuggingFace Hub API client for dataset downloads.
 
-  Provides functions to:
+  This module provides a high-level interface for fetching datasets from HuggingFace Hub,
+  built on top of the `HfHub` library which handles API access, downloads, and caching.
+
+  ## Features
+
   - List files in a HuggingFace dataset repository
-  - Download individual files
-  - Fetch and parse complete dataset splits
-
-  ## URL Patterns
-
-  - API for file listing: `https://huggingface.co/api/datasets/{repo_id}/tree/{revision}`
-  - File download: `https://huggingface.co/datasets/{repo_id}/resolve/{revision}/{path}`
+  - Download individual files with automatic caching
+  - Fetch and parse complete dataset splits (parquet, jsonl, json, csv)
+  - Resume interrupted downloads
+  - Smart caching with LRU eviction
 
   ## Authentication
 
-  Set the `HF_TOKEN` environment variable for authenticated access to private datasets.
+  Set the `HF_TOKEN` environment variable for authenticated access to private datasets,
+  or configure via:
+
+      config :hf_hub, token: "hf_..."
 
   ## Examples
 
@@ -22,18 +26,17 @@ defmodule CrucibleDatasets.Fetcher.HuggingFace do
       {:ok, files} = HuggingFace.list_files("openai/gsm8k")
 
       # Download a specific file
-      {:ok, data} = HuggingFace.download_file("openai/gsm8k", "data/train.parquet")
+      {:ok, path} = HuggingFace.download_file("openai/gsm8k", "data/train.parquet")
 
       # Fetch and parse a dataset split
       {:ok, rows} = HuggingFace.fetch("openai/gsm8k", split: "train")
 
+      # Get dataset configurations
+      {:ok, configs} = HuggingFace.dataset_configs("openai/gsm8k")
+
   """
 
   require Logger
-
-  @base_url "https://huggingface.co"
-  @api_url "https://huggingface.co/api"
-  @default_timeout 60_000
 
   @doc """
   Build the download URL for a file in a HuggingFace dataset.
@@ -47,19 +50,20 @@ defmodule CrucibleDatasets.Fetcher.HuggingFace do
   @spec build_file_url(String.t(), String.t(), keyword()) :: String.t()
   def build_file_url(repo_id, path, opts \\ []) do
     revision = Keyword.get(opts, :revision, "main")
-    "#{@base_url}/datasets/#{repo_id}/resolve/#{revision}/#{path}"
+    endpoint = HfHub.Config.endpoint()
+    "#{endpoint}/datasets/#{repo_id}/resolve/#{revision}/#{path}"
   end
 
   @doc """
   List all files in a HuggingFace dataset repository.
 
   ## Options
-    * `:config` - Dataset configuration/subset (default: root directory)
+    * `:config` - Dataset configuration/subset (filters by path prefix)
     * `:revision` - Git revision/branch (default: "main")
-    * `:token` - HuggingFace API token (default: from HF_TOKEN env var)
+    * `:token` - HuggingFace API token (default: from HF_TOKEN env var or hf_hub config)
 
   ## Returns
-    * `{:ok, files}` - List of file metadata maps
+    * `{:ok, files}` - List of file metadata maps with "path", "size", "type" keys
     * `{:error, reason}` - Error tuple
 
   """
@@ -67,41 +71,52 @@ defmodule CrucibleDatasets.Fetcher.HuggingFace do
   def list_files(repo_id, opts \\ []) do
     config = Keyword.get(opts, :config)
     revision = Keyword.get(opts, :revision, "main")
-    token = Keyword.get(opts, :token) || System.get_env("HF_TOKEN")
+    token = Keyword.get(opts, :token)
 
-    path = if config, do: "/#{config}", else: ""
-    url = "#{@api_url}/datasets/#{repo_id}/tree/#{revision}#{path}"
+    case HfHub.Api.list_files(repo_id, repo_type: :dataset, revision: revision, token: token) do
+      {:ok, files} ->
+        # Convert HfHub file_info format to our expected format
+        formatted_files =
+          files
+          |> Enum.map(fn file ->
+            %{
+              "path" => file.rfilename,
+              "size" => file.size,
+              "type" => if(String.contains?(file.rfilename || "", "/"), do: "file", else: "file"),
+              "lfs" => file.lfs
+            }
+          end)
+          |> maybe_filter_by_config(config)
 
-    headers = build_headers(token)
-
-    case Req.get(url, headers: headers, receive_timeout: @default_timeout) do
-      {:ok, %{status: 200, body: files}} when is_list(files) ->
-        {:ok, files}
-
-      {:ok, %{status: 200, body: body}} ->
-        # Sometimes the API returns a non-list body - try to handle it
-        {:ok, [body]}
-
-      {:ok, %{status: 401}} ->
-        {:error, :unauthorized}
-
-      {:ok, %{status: 404}} ->
-        {:error, :not_found}
-
-      {:ok, %{status: status, body: body}} ->
-        {:error, {:http_error, status, body}}
+        {:ok, formatted_files}
 
       {:error, reason} ->
-        {:error, {:request_failed, reason}}
+        {:error, reason}
     end
+  end
+
+  defp maybe_filter_by_config(files, nil), do: files
+
+  defp maybe_filter_by_config(files, config) do
+    Enum.filter(files, fn f ->
+      path = f["path"] || ""
+
+      String.starts_with?(path, config) or
+        String.starts_with?(path, "data/#{config}") or
+        String.contains?(path, "/#{config}/")
+    end)
   end
 
   @doc """
   Download a file from a HuggingFace dataset repository.
 
+  Downloads to the HfHub cache and returns the file contents. Uses caching by default,
+  so repeated downloads of the same file are served from cache.
+
   ## Options
     * `:revision` - Git revision/branch (default: "main")
-    * `:token` - HuggingFace API token (default: from HF_TOKEN env var)
+    * `:token` - HuggingFace API token (default: from hf_hub config)
+    * `:force_download` - Force re-download even if cached (default: false)
 
   ## Returns
     * `{:ok, binary}` - File contents as binary
@@ -110,86 +125,73 @@ defmodule CrucibleDatasets.Fetcher.HuggingFace do
   """
   @spec download_file(String.t(), String.t(), keyword()) :: {:ok, binary()} | {:error, term()}
   def download_file(repo_id, path, opts \\ []) do
-    url = build_file_url(repo_id, path, opts)
-    token = Keyword.get(opts, :token) || System.get_env("HF_TOKEN")
-    headers = build_headers(token)
+    revision = Keyword.get(opts, :revision, "main")
+    token = Keyword.get(opts, :token)
+    force_download = Keyword.get(opts, :force_download, false)
 
-    # Use Req with redirect following and longer timeout for large files
-    req_opts = [
-      headers: headers,
-      receive_timeout: @default_timeout * 5,
-      redirect: true,
-      max_redirects: 5,
-      raw: true
+    download_opts = [
+      repo_id: repo_id,
+      filename: path,
+      repo_type: :dataset,
+      revision: revision,
+      force_download: force_download
     ]
 
-    case Req.get(url, req_opts) do
-      {:ok, %{status: 200, body: body}} when is_binary(body) ->
-        {:ok, body}
+    download_opts = if token, do: Keyword.put(download_opts, :token, token), else: download_opts
 
-      {:ok, %{status: 200, body: body}} ->
-        # If body is not binary, try to convert
-        {:ok, IO.iodata_to_binary(body)}
+    case HfHub.Download.hf_hub_download(download_opts) do
+      {:ok, cache_path} ->
+        # Read the file contents from cache
+        case File.read(cache_path) do
+          {:ok, ""} ->
+            # Empty file likely means download failed (404 created empty file)
+            {:error, :empty_file}
 
-      {:ok, %{status: 302, headers: headers}} ->
-        # Manual redirect handling if needed
-        location = get_header(headers, "location")
+          {:ok, data} ->
+            {:ok, data}
 
-        if location do
-          Logger.debug("redirecting to #{location}")
-          download_url(location, token)
-        else
-          {:error, {:redirect_without_location, headers}}
+          {:error, reason} ->
+            {:error, reason}
         end
 
-      {:ok, %{status: 401}} ->
-        {:error, :unauthorized}
-
-      {:ok, %{status: 404}} ->
-        {:error, :not_found}
-
-      {:ok, %{status: status, body: body}} ->
-        {:error, {:http_error, status, body}}
-
       {:error, reason} ->
-        {:error, {:request_failed, reason}}
+        {:error, reason}
     end
   end
 
-  # Download from a direct URL (for following redirects)
-  defp download_url(url, token) do
-    headers = build_headers(token)
+  @doc """
+  Download a file and return the local cache path instead of contents.
 
-    req_opts = [
-      headers: headers,
-      receive_timeout: @default_timeout * 5,
-      redirect: true,
-      max_redirects: 5,
-      raw: true
+  Useful for large files where you don't want to load the entire file into memory.
+
+  ## Options
+    * `:revision` - Git revision/branch (default: "main")
+    * `:token` - HuggingFace API token
+    * `:force_download` - Force re-download even if cached (default: false)
+
+  ## Returns
+    * `{:ok, path}` - Local path to the cached file
+    * `{:error, reason}` - Error tuple
+
+  """
+  @spec download_file_to_cache(String.t(), String.t(), keyword()) ::
+          {:ok, Path.t()} | {:error, term()}
+  def download_file_to_cache(repo_id, path, opts \\ []) do
+    revision = Keyword.get(opts, :revision, "main")
+    token = Keyword.get(opts, :token)
+    force_download = Keyword.get(opts, :force_download, false)
+
+    download_opts = [
+      repo_id: repo_id,
+      filename: path,
+      repo_type: :dataset,
+      revision: revision,
+      force_download: force_download
     ]
 
-    case Req.get(url, req_opts) do
-      {:ok, %{status: 200, body: body}} when is_binary(body) ->
-        {:ok, body}
+    download_opts = if token, do: Keyword.put(download_opts, :token, token), else: download_opts
 
-      {:ok, %{status: 200, body: body}} ->
-        {:ok, IO.iodata_to_binary(body)}
-
-      {:ok, %{status: status}} ->
-        {:error, {:http_error, status}}
-
-      {:error, reason} ->
-        {:error, {:request_failed, reason}}
-    end
-  end
-
-  defp get_header(headers, name) do
-    name_lower = String.downcase(name)
-
-    case Enum.find(headers, fn {k, _v} -> String.downcase(k) == name_lower end) do
-      {_, value} -> value
-      nil -> nil
-    end
+    HfHub.Download.hf_hub_download(download_opts)
   end
 
   @doc """
@@ -206,6 +208,7 @@ defmodule CrucibleDatasets.Fetcher.HuggingFace do
     * `:config` - Dataset configuration/subset
     * `:revision` - Git revision/branch (default: "main")
     * `:token` - HuggingFace API token (default: from HF_TOKEN env var)
+    * `:max_files` - Maximum number of files to download for sharded datasets (default: 3)
 
   ## Returns
     * `{:ok, data}` - List of row maps
@@ -221,19 +224,105 @@ defmodule CrucibleDatasets.Fetcher.HuggingFace do
   def fetch(repo_id, opts \\ []) do
     split = Keyword.get(opts, :split, "train")
     config = Keyword.get(opts, :config)
-    token = Keyword.get(opts, :token) || System.get_env("HF_TOKEN")
+    token = Keyword.get(opts, :token)
+    # Limit files for large sharded datasets (default: 3 files max)
+    max_files = Keyword.get(opts, :max_files, 3)
 
     with {:ok, files} <- list_all_files(repo_id, config, token),
          {:ok, data_files} <- find_split_files(files, split, config),
-         {:ok, data} <- download_and_parse_files(repo_id, data_files, token) do
+         limited_files = Enum.take(data_files, max_files),
+         {:ok, data} <- download_and_parse_files(repo_id, limited_files, token) do
       {:ok, data}
     end
   end
 
-  # Private helpers
+  @doc """
+  Get dataset information from HuggingFace Hub.
 
-  defp build_headers(nil), do: []
-  defp build_headers(token), do: [{"Authorization", "Bearer #{token}"}]
+  ## Options
+    * `:revision` - Git revision/branch (default: "main")
+    * `:token` - HuggingFace API token
+
+  ## Returns
+    * `{:ok, info}` - Dataset metadata map
+    * `{:error, reason}` - Error tuple
+
+  """
+  @spec dataset_info(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def dataset_info(repo_id, opts \\ []) do
+    HfHub.Api.dataset_info(repo_id, opts)
+  end
+
+  @doc """
+  Get available configuration names for a dataset.
+
+  Configurations (also called subsets) represent different versions of a dataset.
+  For example, `openai/gsm8k` has "main" and "socratic" configs.
+
+  ## Options
+    * `:token` - HuggingFace API token
+
+  ## Returns
+    * `{:ok, configs}` - List of configuration names
+    * `{:error, reason}` - Error tuple
+
+  ## Examples
+
+      {:ok, configs} = HuggingFace.dataset_configs("openai/gsm8k")
+      # => {:ok, ["main", "socratic"]}
+
+  """
+  @spec dataset_configs(String.t(), keyword()) :: {:ok, [String.t()]} | {:error, term()}
+  def dataset_configs(repo_id, opts \\ []) do
+    HfHub.Api.dataset_configs(repo_id, opts)
+  end
+
+  @doc """
+  Check if a dataset file is cached locally.
+
+  ## Options
+    * `:revision` - Git revision/branch (default: "main")
+
+  ## Returns
+    * `true` if the file is cached, `false` otherwise
+
+  """
+  @spec cached?(String.t(), String.t(), keyword()) :: boolean()
+  def cached?(repo_id, filename, opts \\ []) do
+    revision = Keyword.get(opts, :revision, "main")
+
+    HfHub.Cache.cached?(
+      repo_id: repo_id,
+      filename: filename,
+      repo_type: :dataset,
+      revision: revision
+    )
+  end
+
+  @doc """
+  Get the local cache path for a dataset file.
+
+  ## Options
+    * `:revision` - Git revision/branch (default: "main")
+
+  ## Returns
+    * `{:ok, path}` - Local path to the cached file
+    * `{:error, :not_cached}` - File is not cached
+
+  """
+  @spec cache_path(String.t(), String.t(), keyword()) :: {:ok, Path.t()} | {:error, :not_cached}
+  def cache_path(repo_id, filename, opts \\ []) do
+    revision = Keyword.get(opts, :revision, "main")
+
+    HfHub.Cache.cache_path(
+      repo_id: repo_id,
+      filename: filename,
+      repo_type: :dataset,
+      revision: revision
+    )
+  end
+
+  # Private helpers
 
   defp list_all_files(repo_id, config, token) do
     # Try to list files recursively
@@ -337,20 +426,30 @@ defmodule CrucibleDatasets.Fetcher.HuggingFace do
   defp is_data_file?(path) do
     String.ends_with?(path, ".parquet") or
       String.ends_with?(path, ".jsonl") or
+      String.ends_with?(path, ".jsonl.gz") or
       String.ends_with?(path, ".json") or
-      String.ends_with?(path, ".csv")
+      String.ends_with?(path, ".json.gz") or
+      String.ends_with?(path, ".csv") or
+      String.ends_with?(path, ".csv.gz")
   end
 
   defp matches_split?(path, split, config) do
     path_lower = String.downcase(path)
     split_lower = String.downcase(split)
+    filename = Path.basename(path_lower)
 
-    # Common patterns
+    # Common patterns:
+    # - data/train-00000-of-00001.parquet
+    # - train/00000.parquet
+    # - config/train.jsonl
+    # - harmless-base/train.jsonl.gz (filename starts with split)
     String.contains?(path_lower, "/#{split_lower}") or
       String.contains?(path_lower, "/#{split_lower}-") or
       String.contains?(path_lower, "/#{split_lower}.") or
       String.starts_with?(path_lower, "#{split_lower}/") or
       String.starts_with?(path_lower, "#{split_lower}-") or
+      String.starts_with?(filename, "#{split_lower}.") or
+      String.starts_with?(filename, "#{split_lower}-") or
       (config && String.contains?(path_lower, "#{config}/#{split_lower}"))
   end
 
@@ -359,15 +458,30 @@ defmodule CrucibleDatasets.Fetcher.HuggingFace do
     results =
       Enum.map(files, fn file ->
         path = file["path"]
-        Logger.debug("Downloading #{path} from #{repo_id}")
+        download_opts = if token, do: [token: token], else: []
 
-        with {:ok, data} <- download_file(repo_id, path, token: token),
-             {:ok, rows} <- parse_file(data, path) do
-          rows
-        else
+        # For parquet files, use cached path directly (more efficient)
+        # For other formats, read contents
+        result =
+          if String.ends_with?(path, ".parquet") do
+            with {:ok, cache_path} <- download_file_to_cache(repo_id, path, download_opts),
+                 {:ok, rows} <- parse_parquet_file(cache_path) do
+              rows
+            end
+          else
+            with {:ok, data} <- download_file(repo_id, path, download_opts),
+                 {:ok, rows} <- parse_file(data, path) do
+              rows
+            end
+          end
+
+        case result do
           {:error, reason} ->
             Logger.warning("Failed to download/parse #{path}: #{inspect(reason)}")
             []
+
+          rows when is_list(rows) ->
+            rows
         end
       end)
 
@@ -381,10 +495,10 @@ defmodule CrucibleDatasets.Fetcher.HuggingFace do
   end
 
   defp parse_file(data, path) do
-    cond do
-      String.ends_with?(path, ".parquet") ->
-        parse_parquet(data)
+    # Decompress if gzipped
+    {data, path} = maybe_decompress(data, path)
 
+    cond do
       String.ends_with?(path, ".jsonl") ->
         parse_jsonl(data)
 
@@ -399,21 +513,63 @@ defmodule CrucibleDatasets.Fetcher.HuggingFace do
     end
   end
 
-  defp parse_parquet(data) do
-    # Write to temp file for Explorer to read
-    tmp_path = Path.join(System.tmp_dir!(), "hf_#{:erlang.unique_integer([:positive])}.parquet")
+  defp maybe_decompress(data, path) do
+    if String.ends_with?(path, ".gz") do
+      {:zlib.gunzip(data), String.replace_suffix(path, ".gz", "")}
+    else
+      {data, path}
+    end
+  rescue
+    _ -> {data, path}
+  end
 
-    try do
-      :ok = File.write!(tmp_path, data)
+  defp parse_parquet_file(file_path) do
+    # First validate the parquet file has correct magic bytes
+    case validate_parquet_file(file_path) do
+      :ok ->
+        try do
+          df = Explorer.DataFrame.from_parquet!(file_path)
+          rows = Explorer.DataFrame.to_rows(df)
+          {:ok, rows}
+        rescue
+          e ->
+            # Delete corrupted file so it gets re-downloaded next time
+            File.rm(file_path)
+            {:error, {:parquet_parse_error, Exception.message(e)}}
+        end
 
-      df = Explorer.DataFrame.from_parquet!(tmp_path)
-      rows = Explorer.DataFrame.to_rows(df)
-      {:ok, rows}
-    rescue
-      e ->
-        {:error, {:parquet_parse_error, Exception.message(e)}}
-    after
-      File.rm(tmp_path)
+      {:error, reason} ->
+        # Delete corrupted file so it gets re-downloaded next time
+        File.rm(file_path)
+        {:error, {:parquet_validation_failed, reason}}
+    end
+  end
+
+  defp validate_parquet_file(file_path) do
+    # Parquet files must start with "PAR1" and end with "PAR1"
+    case File.open(file_path, [:read, :binary]) do
+      {:ok, file} ->
+        try do
+          header = IO.binread(file, 4)
+          :file.position(file, {:eof, -4})
+          footer = IO.binread(file, 4)
+          File.close(file)
+
+          cond do
+            not is_binary(header) or byte_size(header) < 4 -> {:error, :invalid_header}
+            not is_binary(footer) or byte_size(footer) < 4 -> {:error, :invalid_footer}
+            header != "PAR1" -> {:error, :invalid_header}
+            footer != "PAR1" -> {:error, :invalid_footer}
+            true -> :ok
+          end
+        rescue
+          _ ->
+            File.close(file)
+            {:error, :file_read_error}
+        end
+
+      {:error, reason} ->
+        {:error, {:file_open_error, reason}}
     end
   end
 

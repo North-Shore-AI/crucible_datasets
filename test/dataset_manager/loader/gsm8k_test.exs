@@ -41,27 +41,25 @@ defmodule CrucibleDatasets.Loader.GSM8KTest do
     end
   end
 
-  describe "load/1 with synthetic data" do
-    test "loads synthetic GSM8K data" do
-      {:ok, dataset} = GSM8K.load(synthetic: true)
+  describe "load/1" do
+    test "loads GSM8K data" do
+      {:ok, dataset} = GSM8K.load(TestHelper.data_opts())
 
       assert dataset.name == "gsm8k"
       assert length(dataset.items) > 0
-      assert dataset.metadata.source == "synthetic"
     end
 
     test "respects sample_size option" do
-      {:ok, dataset} = GSM8K.load(synthetic: true, sample_size: 5)
+      {:ok, dataset} = GSM8K.load(TestHelper.data_opts(sample_size: 5))
 
       assert length(dataset.items) == 5
     end
 
-    test "synthetic items have correct structure" do
-      {:ok, dataset} = GSM8K.load(synthetic: true, sample_size: 1)
+    test "items have correct structure" do
+      {:ok, dataset} = GSM8K.load(TestHelper.data_opts(sample_size: 1))
 
       first = hd(dataset.items)
       assert is_binary(first.id)
-      assert is_binary(first.input)
       assert is_map(first.expected)
       assert Map.has_key?(first.expected, :answer)
       assert is_map(first.metadata)
@@ -101,10 +99,12 @@ defmodule CrucibleDatasets.Loader.GSM8KTest do
       assert is_map(first.input)
       assert Map.has_key?(first.input, :question)
       assert is_binary(first.input.question)
-      # Expected is the numerical answer (float or nil)
-      assert is_number(first.expected) or is_nil(first.expected)
+      # Expected should be a map with :answer and :reasoning keys (consistent with synthetic)
+      assert is_map(first.expected)
+      assert Map.has_key?(first.expected, :answer)
+      assert Map.has_key?(first.expected, :reasoning)
+      assert is_number(first.expected.answer) or is_nil(first.expected.answer)
       assert is_map(first.metadata)
-      assert Map.has_key?(first.metadata, :reasoning)
     end
 
     @tag timeout: 120_000

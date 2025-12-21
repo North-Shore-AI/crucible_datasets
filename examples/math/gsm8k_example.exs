@@ -32,7 +32,7 @@ dataset.items
 |> Enum.each(fn item ->
   IO.puts("ID: #{item.id}")
   IO.puts("Question: #{String.slice(item.input.question, 0, 100)}...")
-  IO.puts("Expected Answer: #{item.expected}")
+  IO.puts("Expected Answer: #{item.expected.answer}")
   IO.puts("Difficulty: #{item.metadata.difficulty}")
   IO.puts("")
 end)

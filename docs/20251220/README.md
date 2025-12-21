@@ -1,129 +1,58 @@
-# CrucibleDatasets v0.3.0 Port Documentation
+# CrucibleDatasets Tinker Parity Docs (2025-12-20)
 
-**Date**: 2025-12-20
-**Status**: Research/Evaluation Ready
+This directory is the authoritative plan for a complete port of the subset of HuggingFace datasets
+needed to run all tinker cookbook experiments.
 
-## Overview
+## Architecture Overview
 
-This directory contains comprehensive documentation for the CrucibleDatasets port from Python's HuggingFace `datasets` library to Elixir.
+The port is structured as a 2-package architecture:
 
-## Documents
+1. **hf_hub_ex** - Single shared core package (mirrors Python's huggingface_hub)
+   - Hub API client, caching, downloads, auth, filesystem abstraction
+   - Used by both tinkex (Elixir training SDK) and crucible_datasets
+   - Foundation for the broader HF ecosystem in Elixir
 
+2. **crucible_datasets** - Dataset library (depends on hf_hub_ex)
+   - Dataset/DatasetDict/IterableDataset types
+   - Features system (ClassLabel, Value, Image, etc.)
+   - Format parsers (parquet, jsonl, csv)
+   - Media wrappers (uses Vix for images)
+
+## Scope Policy
+- Primary target: tinker-cookbook parity (all recipes, including VLM image classification).
+- Full parity with Python datasets is optional and not required for this milestone.
+- hf_hub_ex is built as the foundational package (like Python's huggingface_hub).
+- crucible_datasets depends on hf_hub_ex for all hub operations.
+
+## Status Snapshot (facts)
+- Fetcher.HuggingFace uses Req + Explorer to list, download, and parse parquet/jsonl/json/csv files.
+- Loaders exist for gsm8k, math, chat, preference, and code; MMLU and HumanEval are still synthetic.
+- Core API (CrucibleDatasets.Loader and Registry) still only wires mmlu/humaneval/gsm8k.
+- No DatasetDict or IterableDataset; no streaming; no download cache; no file extraction; no column projection.
+- Sampler, evaluator, exporter, and result_store are solid and tested.
+
+## How To Use These Docs
+1. Read `docs/20251220/dependency_projects.md` to see prerequisite Elixir projects.
+2. Read `docs/20251220/python_module_inventory.md` for a full Python module map.
+3. Read `docs/20251220/feature_matrix.md` for the full feature set and coverage matrix.
+4. Read `docs/20251220/library_and_system_deps.md` for dependency mapping and system requirements.
+5. Read `docs/20251220/PORTING_PLAN.md` for the phased tinker-parity plan.
+6. Use `docs/20251220/validation_plan.md` for verification criteria.
+
+## Document Index
 | Document | Purpose |
-|----------|---------|
-| [port_architecture.md](port_architecture.md) | Architecture comparison between Python and Elixir implementations |
-| [implementation_status.md](implementation_status.md) | Current status of all components, loaders, and tests |
-| [gap_analysis.md](gap_analysis.md) | Gaps between Python and Elixir, with roadmap |
-| [type_system_design.md](type_system_design.md) | Sinter-based schema design for dataset types |
-
-## Quick Summary
-
-### What We Built
-
-```
-Python datasets: 50,000+ lines → Elixir: 4,100 lines (8% of code)
-```
-
-A **thin fetch layer** that:
-- Downloads datasets from HuggingFace Hub
-- Parses Parquet/JSONL via Explorer (Rust/Polars)
-- Provides sampling, splitting, and evaluation
-- Supports 14 dataset types with synthetic fallbacks
-
-### What Works Today
-
-```elixir
-# Load from HuggingFace
-{:ok, gsm8k} = CrucibleDatasets.Loader.GSM8K.load(split: :train, sample_size: 100)
-
-# Or use synthetic for offline testing
-{:ok, dataset} = CrucibleDatasets.Loader.GSM8K.load(synthetic: true)
-
-# Sample and evaluate
-{:ok, {train, test}} = CrucibleDatasets.Sampler.train_test_split(dataset, test_size: 0.2)
-{:ok, results} = CrucibleDatasets.evaluate(predictions, dataset: test, metrics: [:exact_match])
-```
-
-### Supported Datasets
-
-| Category | Datasets |
-|----------|----------|
-| Math | GSM8K, MATH-500, Hendrycks MATH, DeepMath, POLARIS |
-| Chat | Tulu-3-SFT, No Robots |
-| Preference | HH-RLHF, HelpSteer2/3, UltraFeedback, Arena, Tulu-3-Preference |
-| Code | DeepCoder, HumanEval |
-| Knowledge | MMLU |
-
-### Key Gaps
-
-| Gap | Status | Priority |
-|-----|--------|----------|
-| Disk caching | Not implemented | P1 |
-| Streaming | Not implemented | P1 |
-| Schema validation | Designed (Sinter) | P2 |
-| Column projection | Easy to add | P2 |
-
-## Architecture
-
-```
-┌────────────────────────────────────────────────────────────┐
-│              CrucibleDatasets.Loader.GSM8K                 │
-│                         │                                  │
-│              ┌──────────┴──────────┐                       │
-│              │                     │                       │
-│              ▼                     ▼                       │
-│     ┌────────────────┐    ┌────────────────┐              │
-│     │   Synthetic    │    │   HuggingFace  │              │
-│     │   Generator    │    │   Fetcher      │              │
-│     └────────────────┘    └───────┬────────┘              │
-│                                   │                        │
-│                                   ▼                        │
-│                          ┌────────────────┐                │
-│                          │    Explorer    │                │
-│                          │  (Rust/Polars) │                │
-│                          └───────┬────────┘                │
-│                                  │                         │
-│                                  ▼                         │
-│                          ┌────────────────┐                │
-│                          │ List of Maps   │                │
-│                          │ (Dataset.items)│                │
-│                          └────────────────┘                │
-└────────────────────────────────────────────────────────────┘
-```
-
-## Design Decisions
-
-1. **Thin Fetch Layer**: 95% of value with 5% of code
-2. **Explorer for Parquet**: Leverage Rust/Polars, don't reimplement Arrow
-3. **Synthetic Fallback**: Every loader works offline
-4. **Sinter for Types**: Clean, minimal, runtime-first validation
-5. **No Memory Mapping**: BEAM has different memory model
-
-## Next Steps
-
-See [gap_analysis.md](gap_analysis.md) for the full roadmap:
-
-1. **Phase 1**: Disk caching, test all loaders (1 week)
-2. **Phase 2**: Sinter schema integration (1 week)
-3. **Phase 3**: Streaming support (2 weeks)
-4. **Phase 4**: Polish and v1.0 release (1 week)
-
-## Usage
-
-```bash
-# Run examples
-./examples/run_all.sh
-
-# Run tests
-mix test
-
-# Run with real HuggingFace data
-HF_TOKEN=your_token mix run examples/math/gsm8k_example.exs
-```
-
-## Contributing
-
-1. Pick an item from [gap_analysis.md](gap_analysis.md) Phase 1
-2. Implement with tests
-3. Update [implementation_status.md](implementation_status.md)
-4. Submit PR
+| --- | --- |
+| `dependency_projects.md` | Dependency projects required before CrucibleDatasets integration |
+| `python_module_inventory.md` | Python module inventory and Elixir mapping |
+| `feature_matrix.md` | Formats/operations/features matrix |
+| `library_and_system_deps.md` | Python-to-Elixir dependency mapping and system deps |
+| `PORTING_PLAN.md` | Phased plan with dependency-first sequencing (tinker parity) |
+| `gap_analysis.md` | Gaps vs Python datasets and tinker cookbook |
+| `implementation_status.md` | Current code status and mismatches |
+| `port_architecture.md` | Current vs target architecture |
+| `type_system_design.md` | Full type and features system design |
+| `tinker_requirements.md` | Cookbook dataset and API requirements |
+| `validation_plan.md` | Validation and testing plan |
+| `AGENT_PROMPT.md` | Updated execution prompt for implementation |
+| `remaining_features_design.md` | **NEW** Detailed design for remaining 7 features |
+| `architecture_review.md` | **NEW** Source abstraction and reusability design |

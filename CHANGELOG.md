@@ -2,6 +2,84 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2025-12-21
+
+### Fixed
+
+- **HuggingFace Source:** Fixed nil path handling in `filter_by_config/2` and `filter_by_split/2` - HuggingFace API returns files with `rfilename` key instead of `path`
+- **All Loaders:** Added configurable fallback to synthetic data when HuggingFace downloads fail. Controlled by `config :crucible_datasets, fallback_to_synthetic: true/false` (default: false)
+- **Test Configuration:** Integration tests are now excluded by default to avoid slow network-dependent tests. Run with `mix test --include integration` to include them.
+
+### Added
+
+- **Source Abstraction Layer:**
+  - New `Source` behaviour for data source abstraction
+  - `Source.Local` - Local filesystem source with file listing and streaming
+  - `Source.HuggingFace` - HuggingFace Hub source with download/stream support
+  - Unified API: `list_files/2`, `download/3`, `stream/3`, `exists?/2`
+  - Extensible design for future sources (S3, GCS, etc.)
+
+- **Format Parser Layer:**
+  - New `Format` behaviour for file format parsing
+  - `Format.JSONL` - JSON Lines parser with streaming support
+  - `Format.JSON` - JSON file parser
+  - `Format.CSV` - CSV parser with header detection
+  - `Format.Parquet` - Parquet parser via Explorer
+  - Auto-detection of formats by file extension
+
+- **Dataset Operations:**
+  - `Dataset.map/2` - Transform each item
+  - `Dataset.filter/2` - Filter items by predicate
+  - `Dataset.shuffle/2` - Randomize order (with optional seed)
+  - `Dataset.select/2` - Select specific columns
+  - `Dataset.take/2`, `Dataset.skip/2` - Pagination
+  - `Dataset.slice/3` - Slice with negative index support
+  - `Dataset.batch/2` - Group into batches
+  - `Dataset.concat/1,2` - Concatenate datasets
+  - `Dataset.split/2` - Train/test splitting
+  - `Dataset.shard/2` - Create shards for distributed processing
+  - Column operations: `rename_column/3`, `add_column/3`, `remove_columns/2`
+  - `Dataset.unique/2`, `Dataset.sort/2`, `Dataset.flatten/2`
+  - Enumerable protocol for `for` comprehensions and Enum functions
+  - Access behaviour for bracket notation (`dataset[0]`)
+
+- **DatasetDict:**
+  - Dictionary of splits (train/test/validation)
+  - Python-like bracket access: `dd["train"]`
+  - Operations across all splits: `map/2`, `filter/2`, `select/2`, `shuffle/2`
+  - `flatten/1` - Combine all splits into single dataset
+  - Enumerable protocol for iteration over splits
+
+- **IterableDataset:**
+  - Lazy, streaming dataset for memory-efficient processing
+  - Lazy transformations: `map/2`, `filter/2`, `batch/2`
+  - Buffered shuffle with seed support
+  - Conversion: `from_stream/2`, `from_dataset/1`, `to_dataset/1`, `to_list/1`
+  - Enumerable protocol for lazy consumption
+
+- **Features Schema System:**
+  - Type system for dataset columns
+  - `Value` - Scalar types (int8-64, uint8-64, float16-64, string, bool, binary)
+  - `ClassLabel` - Categorical with encode/decode
+  - `Sequence` - Lists with fixed length support
+  - `Image` - Image data with mode (RGB, L, RGBA)
+  - `Audio` - Audio data with sample rate
+  - Schema inference from dataset items
+  - Value validation and casting
+
+- **Enhanced Loaders:**
+  - MMLU: HuggingFace integration with fallback to synthetic
+  - HumanEval: HuggingFace integration with fallback to synthetic
+  - Graceful fallback to synthetic data when offline
+
+### Changed
+
+- Version bump from 0.3.0 to 0.4.0
+- Loaders now use Source/Format abstractions internally
+- Better error handling with synthetic fallbacks
+- All tests passing (282 tests, 0 failures)
+- No dialyzer warnings
+
 ## [0.3.0] - 2025-11-26
 
 ### Added

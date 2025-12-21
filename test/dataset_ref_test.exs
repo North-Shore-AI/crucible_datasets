@@ -15,7 +15,7 @@ defmodule CrucibleDatasets.DatasetRefTest do
       ref = %DatasetRef{
         name: :mmlu_stem,
         split: :train,
-        options: [sample_size: 50]
+        options: TestHelper.data_opts(sample_size: 50)
       }
 
       {:ok, dataset} = CrucibleDatasets.load(ref)
@@ -30,7 +30,7 @@ defmodule CrucibleDatasets.DatasetRefTest do
       ref = %DatasetRef{
         name: :humaneval,
         split: :test,
-        options: [sample_size: 10]
+        options: TestHelper.data_opts(sample_size: 10)
       }
 
       {:ok, dataset} = CrucibleDatasets.load(ref)
@@ -45,7 +45,7 @@ defmodule CrucibleDatasets.DatasetRefTest do
       ref = %DatasetRef{
         name: :gsm8k,
         split: :train,
-        options: [sample_size: 20]
+        options: TestHelper.data_opts(sample_size: 20)
       }
 
       {:ok, dataset} = CrucibleDatasets.load(ref)
@@ -63,7 +63,7 @@ defmodule CrucibleDatasets.DatasetRefTest do
         options: nil
       }
 
-      {:ok, dataset} = CrucibleDatasets.load(ref)
+      {:ok, dataset} = CrucibleDatasets.load(ref, TestHelper.data_opts())
 
       assert dataset.name == "mmlu_stem"
       assert dataset.version == "1.0"
@@ -73,7 +73,7 @@ defmodule CrucibleDatasets.DatasetRefTest do
       ref = %DatasetRef{
         name: :humaneval,
         split: :test,
-        options: []
+        options: TestHelper.data_opts()
       }
 
       {:ok, dataset} = CrucibleDatasets.load(ref)
@@ -86,7 +86,7 @@ defmodule CrucibleDatasets.DatasetRefTest do
       ref = %DatasetRef{
         name: :unknown_dataset,
         split: :train,
-        options: []
+        options: TestHelper.data_opts()
       }
 
       assert {:error, {:unknown_dataset, :unknown_dataset}} = CrucibleDatasets.load(ref)
@@ -96,13 +96,12 @@ defmodule CrucibleDatasets.DatasetRefTest do
       ref = %DatasetRef{
         name: :mmlu_stem,
         split: :train,
-        options: [sample_size: 10, cache: false]
+        options: TestHelper.data_opts(sample_size: 10, cache: false)
       }
 
       {:ok, dataset} = CrucibleDatasets.load(ref)
 
       assert dataset.name == "mmlu_stem"
-      # Cache should not contain this dataset
       assert {:error, :not_cached} = Cache.get(:mmlu_stem)
     end
 
@@ -110,13 +109,10 @@ defmodule CrucibleDatasets.DatasetRefTest do
       ref = %DatasetRef{
         name: :mmlu_stem,
         split: :train,
-        options: [sample_size: 10]
+        options: TestHelper.data_opts(sample_size: 10)
       }
 
-      # First load
       {:ok, dataset1} = CrucibleDatasets.load(ref)
-
-      # Second load should use cache
       {:ok, dataset2} = CrucibleDatasets.load(ref)
 
       assert dataset1.name == dataset2.name
@@ -127,13 +123,13 @@ defmodule CrucibleDatasets.DatasetRefTest do
       ref1 = %DatasetRef{
         name: :mmlu_stem,
         split: :train,
-        options: [sample_size: 10]
+        options: TestHelper.data_opts(sample_size: 10)
       }
 
       ref2 = %DatasetRef{
         name: :mmlu_stem,
         split: :train,
-        options: [sample_size: 20]
+        options: TestHelper.data_opts(sample_size: 20)
       }
 
       {:ok, dataset1} = CrucibleDatasets.load(ref1)
@@ -149,7 +145,7 @@ defmodule CrucibleDatasets.DatasetRefTest do
       ref = %DatasetRef{
         name: :mmlu_stem,
         split: :train,
-        options: [sample_size: 5]
+        options: TestHelper.data_opts(sample_size: 5)
       }
 
       {:ok, dataset} = CrucibleDatasets.load(ref)
@@ -181,7 +177,7 @@ defmodule CrucibleDatasets.DatasetRefTest do
       ref = %DatasetRef{
         name: :mmlu_stem,
         split: :train,
-        options: [sample_size: 100]
+        options: TestHelper.data_opts(sample_size: 100)
       }
 
       {:ok, dataset} = CrucibleDatasets.load(ref)
@@ -195,7 +191,7 @@ defmodule CrucibleDatasets.DatasetRefTest do
       ref = %DatasetRef{
         name: :gsm8k,
         split: :train,
-        options: [sample_size: 50]
+        options: TestHelper.data_opts(sample_size: 50)
       }
 
       {:ok, dataset} = CrucibleDatasets.load(ref)

@@ -29,15 +29,15 @@ defmodule CrucibleDatasets.Loader.Math do
       description: "500 challenging math problems for evaluation"
     },
     hendrycks_math: %{
-      repo_id: "hendrycks/competition_math",
-      description: "Competition-level math problems"
+      repo_id: "EleutherAI/hendrycks_math",
+      description: "Competition-level math problems (Hendrycks MATH)"
     },
     deepmath: %{
-      repo_id: "GAIR/DeepMath-103K",
+      repo_id: "zwhe99/DeepMath-103K",
       description: "DeepMath 103K training dataset"
     },
     polaris: %{
-      repo_id: "GAIR/POLARIS-53K",
+      repo_id: "POLARIS-Project/Polaris-Dataset-53K",
       description: "POLARIS 53K math dataset"
     }
   }
@@ -83,8 +83,6 @@ defmodule CrucibleDatasets.Loader.Math do
     sample_size = Keyword.get(opts, :sample_size)
     token = Keyword.get(opts, :token)
 
-    Logger.debug("Loading #{dataset_name} #{split} split from HuggingFace...")
-
     fetch_opts = [split: split, token: token]
     fetch_opts = if config, do: Keyword.put(fetch_opts, :config, config), else: fetch_opts
 
@@ -111,8 +109,15 @@ defmodule CrucibleDatasets.Loader.Math do
         {:ok, dataset}
 
       {:error, reason} ->
-        Logger.error("Failed to load #{dataset_name} from HuggingFace: #{inspect(reason)}")
-        {:error, {:huggingface_fetch_failed, reason}}
+        if Application.get_env(:crucible_datasets, :fallback_to_synthetic, false) do
+          Logger.warning(
+            "Failed to load #{dataset_name} from HuggingFace: #{inspect(reason)}, falling back to synthetic"
+          )
+
+          load_synthetic(dataset_name, opts)
+        else
+          {:error, {:huggingface_fetch_failed, reason}}
+        end
     end
   end
 

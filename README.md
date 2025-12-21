@@ -30,7 +30,7 @@ CrucibleDatasets provides a unified interface for loading, caching, evaluating, 
 - **GSM8K** - Grade school math word problems (8,500 problems)
 - **Custom Datasets** - Load from local JSONL files
 
-### HuggingFace Datasets (v0.3.0+)
+### HuggingFace Datasets (v0.4.0+)
 
 | Category | Datasets |
 |----------|----------|
@@ -46,7 +46,7 @@ Add `crucible_datasets` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:crucible_datasets, "~> 0.3.0"}
+    {:crucible_datasets, "~> 0.4.0"}
   ]
 end
 ```

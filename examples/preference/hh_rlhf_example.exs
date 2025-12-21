@@ -5,7 +5,7 @@
 # like HH-RLHF for DPO training.
 
 alias CrucibleDatasets.Loader.Preference
-alias CrucibleDatasets.Types.{Comparison, LabeledComparison}
+alias CrucibleDatasets.Types.LabeledComparison
 
 IO.puts("=" <> String.duplicate("=", 60))
 IO.puts("HH-RLHF Preference Dataset Example")

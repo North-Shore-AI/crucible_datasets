@@ -1,0 +1,136 @@
+defmodule CrucibleDatasets.FormatTest do
+  use ExUnit.Case, async: true
+
+  alias CrucibleDatasets.Format
+
+  describe "Format.JSONL" do
+    alias CrucibleDatasets.Format.JSONL
+
+    setup do
+      tmp_path = System.tmp_dir!() |> Path.join("test_#{:rand.uniform(100_000)}.jsonl")
+      content = ~s|{"id": 1, "text": "hello"}\n{"id": 2, "text": "world"}\n|
+      File.write!(tmp_path, content)
+
+      on_exit(fn -> File.rm(tmp_path) end)
+      %{path: tmp_path}
+    end
+
+    test "parse/1 returns list of maps", %{path: path} do
+      {:ok, items} = JSONL.parse(path)
+
+      assert length(items) == 2
+      assert hd(items)["id"] == 1
+      assert hd(items)["text"] == "hello"
+    end
+
+    test "parse_stream/1 returns lazy stream", %{path: path} do
+      stream = File.stream!(path, :line)
+      result = JSONL.parse_stream(stream) |> Enum.to_list()
+
+      assert length(result) == 2
+      assert hd(result)["id"] == 1
+    end
+
+    test "handles?/1 returns true for .jsonl files" do
+      assert JSONL.handles?("data.jsonl")
+      assert JSONL.handles?("path/to/data.jsonlines")
+      refute JSONL.handles?("data.json")
+      refute JSONL.handles?("data.csv")
+    end
+  end
+
+  describe "Format.JSON" do
+    alias CrucibleDatasets.Format.JSON
+
+    setup do
+      tmp_path = System.tmp_dir!() |> Path.join("test_#{:rand.uniform(100_000)}.json")
+      content = ~s|[{"id": 1, "text": "hello"}, {"id": 2, "text": "world"}]|
+      File.write!(tmp_path, content)
+
+      on_exit(fn -> File.rm(tmp_path) end)
+      %{path: tmp_path}
+    end
+
+    test "parse/1 returns list of maps from array", %{path: path} do
+      {:ok, items} = JSON.parse(path)
+
+      assert length(items) == 2
+      assert hd(items)["id"] == 1
+    end
+
+    test "parse/1 wraps single object in list" do
+      tmp_path = System.tmp_dir!() |> Path.join("single_#{:rand.uniform(100_000)}.json")
+      File.write!(tmp_path, ~s|{"id": 1}|)
+      on_exit(fn -> File.rm(tmp_path) end)
+
+      {:ok, items} = JSON.parse(tmp_path)
+      assert length(items) == 1
+      assert hd(items)["id"] == 1
+    end
+
+    test "handles?/1 returns true for .json files" do
+      assert JSON.handles?("data.json")
+      assert JSON.handles?("path/to/config.json")
+      refute JSON.handles?("data.jsonl")
+    end
+  end
+
+  describe "Format.CSV" do
+    alias CrucibleDatasets.Format.CSV
+
+    setup do
+      tmp_path = System.tmp_dir!() |> Path.join("test_#{:rand.uniform(100_000)}.csv")
+      content = "id,text\n1,hello\n2,world\n"
+      File.write!(tmp_path, content)
+
+      on_exit(fn -> File.rm(tmp_path) end)
+      %{path: tmp_path}
+    end
+
+    test "parse/1 returns list of maps with headers as keys", %{path: path} do
+      {:ok, items} = CSV.parse(path)
+
+      assert length(items) == 2
+      assert hd(items)["id"] == "1"
+      assert hd(items)["text"] == "hello"
+    end
+
+    test "handles?/1 returns true for .csv files" do
+      assert CSV.handles?("data.csv")
+      refute CSV.handles?("data.json")
+    end
+  end
+
+  describe "Format.Parquet" do
+    alias CrucibleDatasets.Format.Parquet
+
+    test "handles?/1 returns true for .parquet files" do
+      assert Parquet.handles?("data.parquet")
+      refute Parquet.handles?("data.json")
+    end
+
+    # Note: Parquet parsing requires a real parquet file which we can't easily create
+    # Integration tests will cover actual parquet parsing
+  end
+
+  describe "Format.detect/1" do
+    test "detects format from file path" do
+      assert Format.detect("data.jsonl") == :jsonl
+      assert Format.detect("data.json") == :json
+      assert Format.detect("data.csv") == :csv
+      assert Format.detect("data.parquet") == :parquet
+      assert Format.detect("data.txt") == :text
+      assert Format.detect("data.unknown") == :unknown
+    end
+  end
+
+  describe "Format.parser_for/1" do
+    test "returns correct parser module" do
+      assert Format.parser_for(:jsonl) == CrucibleDatasets.Format.JSONL
+      assert Format.parser_for(:json) == CrucibleDatasets.Format.JSON
+      assert Format.parser_for(:csv) == CrucibleDatasets.Format.CSV
+      assert Format.parser_for(:parquet) == CrucibleDatasets.Format.Parquet
+      assert Format.parser_for(:unknown) == nil
+    end
+  end
+end

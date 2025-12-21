@@ -4,20 +4,141 @@ defmodule CrucibleDatasets.Loader.HumanEval do
 
   HumanEval contains 164 programming problems with function signatures and test cases.
   Used to evaluate code generation capabilities.
+
+  ## HuggingFace Dataset
+
+  The official HumanEval dataset is hosted at `openai/openai_humaneval` on HuggingFace.
+
+  ## Example
+
+      {:ok, dataset} = CrucibleDatasets.Loader.HumanEval.load()
+      {:ok, dataset} = CrucibleDatasets.Loader.HumanEval.load(sample_size: 50)
+
   """
 
-  alias CrucibleDatasets.Dataset
+  alias CrucibleDatasets.{Dataset, Source, Format}
+
+  @repo_id "openai/openai_humaneval"
 
   @doc """
-  Load HumanEval dataset.
+  Load HumanEval dataset from HuggingFace.
 
-  For demo purposes, generates synthetic data.
-  In production, would fetch from GitHub: openai/human-eval
+  ## Options
+
+    * `:sample_size` - Limit number of items. Default: all (164)
+    * `:offline` - If true, use synthetic data for testing. Default: false
+
+  ## Examples
+
+      {:ok, dataset} = HumanEval.load()
+      {:ok, dataset} = HumanEval.load(sample_size: 50)
+
   """
+  @spec load(keyword()) :: {:ok, Dataset.t()} | {:error, term()}
   def load(opts \\ []) do
-    # In production, would fetch from:
-    # https://github.com/openai/human-eval/raw/master/data/HumanEval.jsonl.gz
+    # Support both :synthetic and legacy :offline option
+    synthetic = Keyword.get(opts, :synthetic, Keyword.get(opts, :offline, false))
 
+    if synthetic do
+      load_synthetic(opts)
+    else
+      load_from_huggingface(opts)
+    end
+  end
+
+  # Load from HuggingFace
+  defp load_from_huggingface(opts) do
+    sample_size = Keyword.get(opts, :sample_size)
+
+    # HumanEval on HuggingFace is stored as parquet
+    file_path = "openai_humaneval/test-00000-of-00001.parquet"
+
+    case Source.HuggingFace.download(@repo_id, file_path, []) do
+      {:ok, local_path} ->
+        case parse_humaneval_parquet(local_path, sample_size) do
+          {:ok, _} = success -> success
+          {:error, _} -> load_synthetic(opts)
+        end
+
+      {:error, _reason} ->
+        # Try alternative path
+        case Source.HuggingFace.download(@repo_id, "data/test-00000-of-00001.parquet", []) do
+          {:ok, local_path} ->
+            case parse_humaneval_parquet(local_path, sample_size) do
+              {:ok, _} = success ->
+                success
+
+              {:error, reason} ->
+                if Application.get_env(:crucible_datasets, :fallback_to_synthetic, false) do
+                  load_synthetic(opts)
+                else
+                  {:error, {:parse_failed, reason}}
+                end
+            end
+
+          {:error, reason} ->
+            if Application.get_env(:crucible_datasets, :fallback_to_synthetic, false) do
+              load_synthetic(opts)
+            else
+              {:error, {:huggingface_download_failed, reason}}
+            end
+        end
+    end
+  end
+
+  defp parse_humaneval_parquet(path, sample_size) do
+    case Format.Parquet.parse(path) do
+      {:ok, rows} ->
+        items =
+          rows
+          |> Enum.with_index()
+          |> Enum.map(fn {row, idx} ->
+            task_id = row["task_id"] || row[:task_id] || "HumanEval/#{idx}"
+            prompt = row["prompt"] || row[:prompt]
+            canonical = row["canonical_solution"] || row[:canonical_solution]
+            test_code = row["test"] || row[:test]
+            entry_point = row["entry_point"] || row[:entry_point]
+
+            %{
+              id: "humaneval_#{idx}",
+              input: %{
+                signature: prompt,
+                tests: test_code,
+                entry_point: entry_point,
+                description: extract_description(prompt)
+              },
+              expected: canonical,
+              metadata: %{
+                task_id: task_id,
+                difficulty: estimate_difficulty(canonical)
+              }
+            }
+          end)
+
+        final_items = if sample_size, do: Enum.take(items, sample_size), else: items
+
+        dataset =
+          Dataset.new(
+            "humaneval",
+            "1.0",
+            final_items,
+            %{
+              source: "huggingface:#{@repo_id}",
+              license: "MIT",
+              domain: "code_generation",
+              language: "python"
+            }
+          )
+
+        {:ok, dataset}
+
+      {:error, reason} ->
+        {:error, {:parse_error, reason}}
+    end
+  end
+
+  # Load synthetic data for offline testing
+  defp load_synthetic(opts) do
     items = generate_sample_items(opts)
 
     dataset =
@@ -26,7 +147,7 @@ defmodule CrucibleDatasets.Loader.HumanEval do
         "1.0",
         items,
         %{
-          source: "github:openai/human-eval",
+          source: "synthetic",
           license: "MIT",
           domain: "code_generation",
           language: "python"
@@ -132,7 +253,7 @@ defmodule CrucibleDatasets.Loader.HumanEval do
             expected: item["canonical_solution"],
             metadata: %{
               task_id: item["task_id"],
-              difficulty: estimate_difficulty(item)
+              difficulty: estimate_difficulty(item["canonical_solution"])
             }
           }
 
@@ -143,6 +264,8 @@ defmodule CrucibleDatasets.Loader.HumanEval do
     |> Enum.reject(&is_nil/1)
   end
 
+  defp extract_description(nil), do: ""
+
   defp extract_description(prompt) do
     # Extract docstring from prompt
     prompt
@@ -151,9 +274,11 @@ defmodule CrucibleDatasets.Loader.HumanEval do
     |> String.trim()
   end
 
-  defp estimate_difficulty(item) do
+  defp estimate_difficulty(nil), do: "medium"
+
+  defp estimate_difficulty(solution) do
     # Simple heuristic: longer solutions are harder
-    solution_length = String.length(item["canonical_solution"] || "")
+    solution_length = String.length(solution)
 
     cond do
       solution_length < 100 -> "easy"
