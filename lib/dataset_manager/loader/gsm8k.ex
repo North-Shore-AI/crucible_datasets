@@ -3,20 +3,107 @@ defmodule CrucibleDatasets.Loader.GSM8K do
   GSM8K (Grade School Math 8K) dataset loader.
 
   Contains 8,500 grade school math word problems with natural language solutions.
+
+  ## Examples
+
+      # Load train split from HuggingFace
+      {:ok, dataset} = CrucibleDatasets.Loader.GSM8K.load(split: :train)
+
+      # Load test split
+      {:ok, dataset} = CrucibleDatasets.Loader.GSM8K.load(split: :test)
+
+      # Use synthetic data for testing
+      {:ok, dataset} = CrucibleDatasets.Loader.GSM8K.load(synthetic: true)
+
   """
 
   alias CrucibleDatasets.Dataset
+  alias CrucibleDatasets.Fetcher.HuggingFace
+
+  require Logger
+
+  @repo_id "openai/gsm8k"
+  @default_config "main"
 
   @doc """
   Load GSM8K dataset.
 
-  For demo purposes, generates synthetic data.
-  In production, would fetch from HuggingFace.
+  ## Options
+    * `:split` - Dataset split (:train or :test, default: :train)
+    * `:synthetic` - Use synthetic data instead of HuggingFace (default: false)
+    * `:sample_size` - Limit number of items (default: all)
+    * `:config` - Dataset config (default: "main", can also be "socratic")
+    * `:token` - HuggingFace API token
+
   """
   def load(opts \\ []) do
-    # In production, would fetch from:
-    # https://huggingface.co/datasets/gsm8k
+    synthetic = Keyword.get(opts, :synthetic, false)
 
+    if synthetic do
+      load_synthetic(opts)
+    else
+      load_from_huggingface(opts)
+    end
+  end
+
+  defp load_from_huggingface(opts) do
+    split = Keyword.get(opts, :split, :train) |> to_string()
+    config = Keyword.get(opts, :config, @default_config)
+    sample_size = Keyword.get(opts, :sample_size)
+    token = Keyword.get(opts, :token)
+
+    Logger.debug("Loading GSM8K #{split} split from HuggingFace...")
+
+    case HuggingFace.fetch(@repo_id, split: split, config: config, token: token) do
+      {:ok, raw_data} ->
+        items = parse_huggingface_data(raw_data)
+
+        items = if sample_size, do: Enum.take(items, sample_size), else: items
+
+        dataset =
+          Dataset.new(
+            "gsm8k",
+            "1.0",
+            items,
+            %{
+              source: "huggingface:#{@repo_id}",
+              split: split,
+              config: config,
+              license: "MIT",
+              domain: "math_word_problems"
+            }
+          )
+
+        {:ok, dataset}
+
+      {:error, reason} ->
+        Logger.error("Failed to load GSM8K from HuggingFace: #{inspect(reason)}")
+        {:error, {:huggingface_fetch_failed, reason}}
+    end
+  end
+
+  defp parse_huggingface_data(raw_data) do
+    raw_data
+    |> Enum.with_index()
+    |> Enum.map(fn {item, idx} ->
+      answer_text = item["answer"] || ""
+
+      %{
+        id: "gsm8k_#{idx}",
+        input: %{
+          question: item["question"]
+        },
+        expected: extract_numerical_answer(answer_text),
+        metadata: %{
+          reasoning: answer_text,
+          complexity: count_steps(answer_text),
+          difficulty: estimate_difficulty(answer_text)
+        }
+      }
+    end)
+  end
+
+  defp load_synthetic(opts) do
     items = generate_sample_items(opts)
 
     dataset =
@@ -25,7 +112,7 @@ defmodule CrucibleDatasets.Loader.GSM8K do
         "1.0",
         items,
         %{
-          source: "huggingface:gsm8k",
+          source: "synthetic",
           license: "MIT",
           domain: "math_word_problems"
         }
@@ -129,17 +216,51 @@ defmodule CrucibleDatasets.Loader.GSM8K do
   Extract final numerical answer from GSM8K answer format.
 
   GSM8K answers end with "#### <number>"
+
+  ## Examples
+
+      iex> extract_numerical_answer("The answer is #### 42")
+      42.0
+
+      iex> extract_numerical_answer("#### 1,234.56")
+      1234.56
+
+      iex> extract_numerical_answer("no answer here")
+      nil
+
   """
-  def extract_numerical_answer(answer_text) do
-    answer_text
-    |> String.split("####")
-    |> List.last()
-    |> String.trim()
-    |> String.replace(",", "")
-    |> Integer.parse()
-    |> case do
-      {num, _} -> num
-      :error -> 0
+  def extract_numerical_answer(nil), do: nil
+
+  def extract_numerical_answer(answer_text) when is_binary(answer_text) do
+    case String.split(answer_text, "####") do
+      [_] ->
+        nil
+
+      parts ->
+        parts
+        |> List.last()
+        |> String.trim()
+        |> String.replace(",", "")
+        |> String.replace("$", "")
+        |> parse_number()
+    end
+  end
+
+  defp parse_number(str) do
+    str = String.trim(str)
+
+    cond do
+      String.contains?(str, ".") ->
+        case Float.parse(str) do
+          {num, _} -> num
+          :error -> nil
+        end
+
+      true ->
+        case Integer.parse(str) do
+          {num, _} -> num * 1.0
+          :error -> nil
+        end
     end
   end
 

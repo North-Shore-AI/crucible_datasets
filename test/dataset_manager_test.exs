@@ -89,13 +89,20 @@ defmodule DatasetManagerTest do
     end
 
     test "evaluates predictions with multiple metrics" do
-      {:ok, dataset} = CrucibleDatasets.load(:gsm8k, sample_size: 3)
+      {:ok, dataset} = CrucibleDatasets.load(:gsm8k, sample_size: 3, synthetic: true)
 
       predictions =
         Enum.map(dataset.items, fn item ->
+          # Handle both old format (map with :answer) and new format (direct value)
+          expected =
+            case item.expected do
+              %{answer: answer} -> answer
+              value -> value
+            end
+
           %{
             id: item.id,
-            predicted: item.expected.answer,
+            predicted: expected,
             metadata: %{}
           }
         end)

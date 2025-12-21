@@ -24,10 +24,20 @@ CrucibleDatasets provides a unified interface for loading, caching, evaluating, 
 
 ## Supported Datasets
 
+### Core Datasets
 - **MMLU** (Massive Multitask Language Understanding) - 57 subjects across STEM, humanities, social sciences
 - **HumanEval** - Code generation benchmark with 164 programming problems
 - **GSM8K** - Grade school math word problems (8,500 problems)
 - **Custom Datasets** - Load from local JSONL files
+
+### HuggingFace Datasets (v0.3.0+)
+
+| Category | Datasets |
+|----------|----------|
+| **Math** | GSM8K, MATH-500, Hendrycks MATH, DeepMath, POLARIS |
+| **Chat/Instruction** | Tulu-3-SFT, No Robots |
+| **Preference/DPO** | HH-RLHF, HelpSteer2, HelpSteer3, UltraFeedback, Arena-140K, Tulu-3-Preference |
+| **Code** | DeepCoder |
 
 ## Installation
 
@@ -119,6 +129,28 @@ This enables seamless integration with other Crucible components like `crucible_
 {:ok, custom} = CrucibleDatasets.load("my_dataset",
   source: "path/to/data.jsonl"
 )
+```
+
+### Loading from HuggingFace
+
+```elixir
+# Math datasets
+{:ok, gsm8k} = CrucibleDatasets.Loader.GSM8K.load(split: :train)
+{:ok, math500} = CrucibleDatasets.Loader.Math.load(:math_500)
+
+# Chat/Instruction datasets
+{:ok, tulu} = CrucibleDatasets.Loader.Chat.load(:tulu3_sft)
+{:ok, no_robots} = CrucibleDatasets.Loader.Chat.load(:no_robots)
+
+# Preference/DPO datasets
+{:ok, hh_rlhf} = CrucibleDatasets.Loader.Preference.load(:hh_rlhf)
+{:ok, helpsteer} = CrucibleDatasets.Loader.Preference.load(:helpsteer3)
+
+# Code datasets
+{:ok, deepcoder} = CrucibleDatasets.Loader.Code.load(:deepcoder)
+
+# Use synthetic data for offline testing
+{:ok, synthetic} = CrucibleDatasets.Loader.GSM8K.load(synthetic: true, sample_size: 100)
 ```
 
 ### Evaluation
@@ -268,15 +300,29 @@ end
 
 ## Examples
 
-Run the included examples:
+Run all examples:
 
 ```bash
-# Basic usage
-mix run examples/basic_usage.exs
-
-# Advanced evaluation workflow
-mix run examples/evaluation_workflow.exs
+./examples/run_all.sh
 ```
+
+Or run individual examples:
+
+```bash
+# Core functionality
+mix run examples/basic_usage.exs
+mix run examples/evaluation_workflow.exs
+mix run examples/sampling_strategies.exs
+
+# Dataset-specific examples
+mix run examples/math/gsm8k_example.exs
+mix run examples/math/math500_example.exs
+mix run examples/chat/tulu3_sft_example.exs
+mix run examples/preference/hh_rlhf_example.exs
+mix run examples/code/deepcoder_example.exs
+```
+
+See [`examples/README.md`](examples/README.md) for detailed documentation.
 
 ## Testing
 
@@ -298,19 +344,30 @@ mix dialyzer
 ## Architecture
 
 ```
-DatasetManager/
-├── DatasetManager              # Main API
-├── CrucibleDatasets.Dataset      # Dataset schema
-├── CrucibleDatasets.EvaluationResult  # Evaluation result schema
-├── CrucibleDatasets.Loader       # Dataset loading
-│   ├── Loader.MMLU            # MMLU loader
-│   ├── Loader.HumanEval       # HumanEval loader
-│   └── Loader.GSM8K           # GSM8K loader
-├── CrucibleDatasets.Cache        # Local caching
-├── CrucibleDatasets.Evaluator    # Evaluation engine
-│   ├── Evaluator.ExactMatch   # Exact match metric
-│   └── Evaluator.F1           # F1 score metric
-└── CrucibleDatasets.Sampler      # Sampling utilities
+CrucibleDatasets/
+├── CrucibleDatasets             # Main API
+├── Dataset                      # Dataset schema
+├── EvaluationResult             # Evaluation result schema
+├── Fetcher/
+│   └── HuggingFace              # HuggingFace Hub API client
+├── Loader/                      # Dataset loaders
+│   ├── MMLU                     # MMLU loader
+│   ├── HumanEval                # HumanEval loader
+│   ├── GSM8K                    # GSM8K loader (HuggingFace)
+│   ├── Math                     # MATH-500, DeepMath, POLARIS
+│   ├── Chat                     # Tulu-3-SFT, No Robots
+│   ├── Preference               # HH-RLHF, HelpSteer, UltraFeedback
+│   └── Code                     # DeepCoder
+├── Types/                       # Structured data types
+│   ├── Message                  # Chat message (role, content)
+│   ├── Conversation             # Multi-turn conversation
+│   ├── Comparison               # Preference comparison (A vs B)
+│   └── LabeledComparison        # Comparison with preference label
+├── Cache                        # Local caching
+├── Evaluator/                   # Evaluation engine
+│   ├── ExactMatch               # Exact match metric
+│   └── F1                       # F1 score metric
+└── Sampler                      # Sampling utilities
 ```
 
 ## Cache Directory
@@ -1037,7 +1094,21 @@ MIT License - see [LICENSE](https://github.com/North-Shore-AI/crucible_datasets/
 
 ## Changelog
 
-### v0.1.0 (Current)
+### v0.3.0 (Current)
+- HuggingFace Hub integration with `Fetcher.HuggingFace` module
+- New dataset loaders: Math, Chat, Preference, Code
+- Structured type modules: Message, Conversation, Comparison, LabeledComparison
+- Extended Sampler with shuffle, take, skip, filter operations
+- Support for 14+ datasets from HuggingFace
+- Synthetic data fallback for offline testing
+- DatasetRef integration with CrucibleIR
+
+### v0.2.0
+- Metrics module with BLEU, ROUGE, F1
+- Registry and persistence for evaluation results
+- Export tools (CSV, JSONL)
+
+### v0.1.0
 - Initial release with comprehensive dataset management
 - Support for MMLU, HumanEval, and GSM8K datasets
 - Automatic caching and version management

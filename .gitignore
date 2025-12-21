@@ -92,3 +92,6 @@ mix.exs.backup
 mix.exs.old
 
 repomix*.xml
+
+# HuggingFace datasets reference (cloned repo)
+/datasets/

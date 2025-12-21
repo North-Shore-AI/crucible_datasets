@@ -33,6 +33,12 @@ defmodule CrucibleDatasets.MixProject do
       {:crucible_ir, "~> 0.1.1"},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
 
+      # HTTP client for HuggingFace downloads
+      {:req, "~> 0.5"},
+
+      # DataFrames + Parquet support
+      {:explorer, "~> 0.10"},
+
       # Documentation
       {:ex_doc, "~> 0.38", only: :dev, runtime: false}
     ]
