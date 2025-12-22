@@ -26,7 +26,6 @@ defmodule CrucibleDatasets.Loader.HumanEval do
   ## Options
 
     * `:sample_size` - Limit number of items. Default: all (164)
-    * `:offline` - If true, use synthetic data for testing. Default: false
 
   ## Examples
 
@@ -36,14 +35,7 @@ defmodule CrucibleDatasets.Loader.HumanEval do
   """
   @spec load(keyword()) :: {:ok, Dataset.t()} | {:error, term()}
   def load(opts \\ []) do
-    # Support both :synthetic and legacy :offline option
-    synthetic = Keyword.get(opts, :synthetic, Keyword.get(opts, :offline, false))
-
-    if synthetic do
-      load_synthetic(opts)
-    else
-      load_from_huggingface(opts)
-    end
+    load_from_huggingface(opts)
   end
 
   # Load from HuggingFace
@@ -57,7 +49,7 @@ defmodule CrucibleDatasets.Loader.HumanEval do
       {:ok, local_path} ->
         case parse_humaneval_parquet(local_path, sample_size) do
           {:ok, _} = success -> success
-          {:error, _} -> load_synthetic(opts)
+          {:error, reason} -> {:error, {:parse_failed, reason}}
         end
 
       {:error, _reason} ->
@@ -69,19 +61,11 @@ defmodule CrucibleDatasets.Loader.HumanEval do
                 success
 
               {:error, reason} ->
-                if Application.get_env(:crucible_datasets, :fallback_to_synthetic, false) do
-                  load_synthetic(opts)
-                else
-                  {:error, {:parse_failed, reason}}
-                end
+                {:error, {:parse_failed, reason}}
             end
 
           {:error, reason} ->
-            if Application.get_env(:crucible_datasets, :fallback_to_synthetic, false) do
-              load_synthetic(opts)
-            else
-              {:error, {:huggingface_download_failed, reason}}
-            end
+            {:error, {:huggingface_download_failed, reason}}
         end
     end
   end
@@ -135,101 +119,6 @@ defmodule CrucibleDatasets.Loader.HumanEval do
       {:error, reason} ->
         {:error, {:parse_error, reason}}
     end
-  end
-
-  # Load synthetic data for offline testing
-  defp load_synthetic(opts) do
-    items = generate_sample_items(opts)
-
-    dataset =
-      Dataset.new(
-        "humaneval",
-        "1.0",
-        items,
-        %{
-          source: "synthetic",
-          license: "MIT",
-          domain: "code_generation",
-          language: "python"
-        }
-      )
-
-    {:ok, dataset}
-  end
-
-  # Generate sample HumanEval items for testing
-  defp generate_sample_items(opts) do
-    count = Keyword.get(opts, :sample_size, 10)
-
-    problems = [
-      {"has_close_elements", "list of numbers",
-       "Check if any two numbers are closer than threshold"},
-      {"separate_paren_groups", "string", "Separate nested parentheses groups"},
-      {"truncate_number", "float", "Return decimal part of number"},
-      {"below_zero", "list of operations", "Check if balance goes below zero"},
-      {"mean_absolute_deviation", "list of numbers", "Calculate mean absolute deviation"},
-      {"intersperse", "list and delimiter", "Insert delimiter between elements"},
-      {"parse_nested_parens", "string", "Parse nested parentheses depth"},
-      {"filter_by_substring", "list of strings", "Filter strings containing substring"},
-      {"sum_product", "list of integers", "Return sum and product"},
-      {"rolling_max", "list of numbers", "Generate rolling maximum"}
-    ]
-
-    problems
-    |> Enum.take(count)
-    |> Enum.with_index()
-    |> Enum.map(fn {{name, inputs, description}, idx} ->
-      %{
-        id: "humaneval_#{idx}",
-        input: %{
-          signature: generate_signature(name, inputs),
-          tests: generate_tests(name),
-          entry_point: name,
-          description: description
-        },
-        expected: generate_solution(name),
-        metadata: %{
-          task_id: "HumanEval/#{idx}",
-          difficulty: Enum.random(["easy", "medium", "hard"])
-        }
-      }
-    end)
-  end
-
-  defp generate_signature(name, _inputs) do
-    """
-    def #{name}(numbers: List[float], threshold: float) -> bool:
-        \"\"\" Check if in given list of numbers, are any two numbers closer to each other than
-        given threshold.
-        >>> #{name}([1.0, 2.0, 3.0], 0.5)
-        False
-        >>> #{name}([1.0, 2.8, 3.0, 4.0, 5.0, 2.0], 0.3)
-        True
-        \"\"\"
-    """
-  end
-
-  defp generate_tests(_name) do
-    """
-    def check(candidate):
-        assert candidate([1.0, 2.0, 3.9, 4.0, 5.0, 2.2], 0.3) == True
-        assert candidate([1.0, 2.0, 3.9, 4.0, 5.0, 2.2], 0.05) == False
-        assert candidate([1.0, 2.0, 5.9, 4.0, 5.0], 0.95) == True
-        assert candidate([1.0, 2.0, 5.9, 4.0, 5.0], 0.8) == False
-    """
-  end
-
-  defp generate_solution(_name) do
-    """
-        for idx, elem in enumerate(numbers):
-            for idx2, elem2 in enumerate(numbers):
-                if idx != idx2:
-                    distance = abs(elem - elem2)
-                    if distance < threshold:
-                        return True
-
-        return False
-    """
   end
 
   @doc """

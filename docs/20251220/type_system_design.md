@@ -12,10 +12,10 @@
 These cover chat and preference datasets, but they are not wired to a formal schema system.
 
 ## Gaps
-- Dataset items are plain maps with no schema enforcement.
-- No dataset-level feature metadata (Value/ClassLabel/Sequence/etc.).
-- No validation pipeline for loader outputs.
-- No media feature types (Image/Audio/Video/NIfTI).
+- Dataset-level features are now integrated (Value/ClassLabel/Sequence/Image).
+- Validation is available via `CrucibleDatasets.Features.validate/2` (opt-in).
+- Image decode is implemented via Vix/libvips.
+- Audio/video/NIfTI remain out of scope for tinker parity.
 
 ## Proposed Schema Layers
 
@@ -58,5 +58,5 @@ A simple representation for media data:
 Decoding is handled by media_ex adapters.
 
 ## Tinker Parity vs Full Parity
-- Tinker parity requires Message/Conversation/Comparison and ClassLabel + Image support.
+- Tinker parity requires Message/Conversation/Comparison and ClassLabel + Image support (now implemented).
 - PDF and NIfTI are full-parity extensions and are not required for tinker parity.

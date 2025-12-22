@@ -16,6 +16,11 @@ This document provides detailed design specifications for the 7 remaining featur
 6. Features Schema System
 7. Image Decode Support
 
+**Status Update (2025-12-21):** All seven features are implemented in crucible_datasets. DatasetDict
+and IterableDataset are wired to `load_dataset/2`, Features are integrated into Dataset, JSONL
+streaming is implemented, and image decode returns `Vix.Vips.Image`. Parquet streaming remains
+batch-based due to Explorer limitations.
+
 ---
 
 ## 1. DatasetDict
@@ -534,9 +539,9 @@ end
 
 ---
 
-## Open Questions
+## Open Questions (Resolved)
 
-1. **Lazy vs Eager Decode**: Should images decode automatically or require explicit `MediaRef.decode/1`?
-2. **Tensor Backend**: Return `Vix.Vips.Image` or convert to `Nx.Tensor`? Or support both?
-3. **Sampler Deprecation**: Keep both Sampler and Dataset methods, or consolidate?
-4. **Streaming Buffer**: What buffer size for shuffle in streaming mode?
+1. **Lazy vs Eager Decode**: Controlled by the Image feature (`decode: true/false`).
+2. **Tensor Backend**: Image decode returns `Vix.Vips.Image` (Nx conversion deferred).
+3. **Sampler Deprecation**: Sampler retained; Dataset methods added for chaining.
+4. **Streaming Buffer**: IterableDataset supports buffered shuffle via explicit buffer size.

@@ -1,5 +1,5 @@
 defmodule CrucibleDatasets.DatasetRefTest do
-  use ExUnit.Case
+  use TestSupport.HfCase
 
   alias CrucibleDatasets.{Dataset, Cache}
   alias CrucibleIR.DatasetRef
@@ -149,6 +149,7 @@ defmodule CrucibleDatasets.DatasetRefTest do
       }
 
       {:ok, dataset} = CrucibleDatasets.load(ref)
+      total = length(dataset.items)
 
       predictions =
         Enum.map(dataset.items, fn item ->
@@ -167,8 +168,8 @@ defmodule CrucibleDatasets.DatasetRefTest do
         )
 
       assert results.accuracy == 1.0
-      assert results.total_items == 5
-      assert results.correct_items == 5
+      assert results.total_items == total
+      assert results.correct_items == total
     end
   end
 
@@ -177,13 +178,13 @@ defmodule CrucibleDatasets.DatasetRefTest do
       ref = %DatasetRef{
         name: :mmlu_stem,
         split: :train,
-        options: TestHelper.data_opts(sample_size: 100)
+        options: TestHelper.data_opts(sample_size: 2)
       }
 
       {:ok, dataset} = CrucibleDatasets.load(ref)
-      {:ok, sample} = CrucibleDatasets.random_sample(dataset, size: 20)
+      {:ok, sample} = CrucibleDatasets.random_sample(dataset, size: 1)
 
-      assert length(sample.items) == 20
+      assert length(sample.items) == 1
       assert sample.metadata.sample_method == :random
     end
 

@@ -6,7 +6,7 @@
 
 The port uses a **2-package architecture**:
 
-1. **hf_hub_ex** - Single shared core package (mirrors Python's huggingface_hub)
+1. **hf_hub_ex** - Single shared core package (mirrors Python's huggingface_hub; v0.1.1 published)
    - Contains: HfHub.Api, HfHub.FS, HfHub.Download, HfHub.Cache, HfHub.Auth
    - Used by both tinkex (Elixir training SDK) and crucible_datasets
    - Foundation for the broader HF ecosystem in Elixir
@@ -28,8 +28,11 @@ The port uses a **2-package architecture**:
 Deliver tinker-cookbook parity in Elixir: all datasets and operations required to run every
 cookbook experiment, including VLM image classification.
 
+**Status Update (2025-12-21):** Tinker parity is implemented. Remaining work is documentation,
+examples, and optional source abstraction refactor.
+
 ## Success Criteria
-- hf_hub_ex is built and published as a hex package
+- hf_hub_ex v0.1.1 is published as a hex package
 - crucible_datasets depends on hf_hub_ex for all hub operations
 - All datasets required by the tinker cookbook load real HF data
 - DatasetDict semantics work for split indexing
@@ -45,7 +48,7 @@ cookbook experiment, including VLM image classification.
 - hf_hub_ex should be shared by both tinkex and crucible_datasets
 
 ## Implementation Order (high level)
-1. **Build hf_hub_ex** (single package containing HfHub.Api, HfHub.FS, HfHub.Download, HfHub.Cache, HfHub.Auth)
+1. **hf_hub_ex is complete** (v0.1.1 published with list_repo_tree, dataset_splits, extraction)
 2. **Integrate hf_hub_ex into crucible_datasets** (replace Fetcher.HuggingFace)
 3. Build Features system + DatasetDict/IterableDataset + dataset ops
 4. Implement streaming for JSONL and Parquet (using HfHub.Download)
@@ -54,4 +57,3 @@ cookbook experiment, including VLM image classification.
 
 ## Critical Path
 Everything depends on hf_hub_ex. Do not proceed with other work until hf_hub_ex is built and integrated.
-

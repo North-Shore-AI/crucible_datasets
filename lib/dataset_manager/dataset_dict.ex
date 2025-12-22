@@ -234,6 +234,22 @@ defmodule CrucibleDatasets.DatasetDict do
   def to_map(%__MODULE__{datasets: datasets}), do: datasets
 
   @doc """
+  Return the number of rows for each split.
+  """
+  @spec num_rows(t()) :: %{String.t() => non_neg_integer()}
+  def num_rows(%__MODULE__{datasets: datasets}) do
+    Map.new(datasets, fn {name, dataset} -> {name, Dataset.num_items(dataset)} end)
+  end
+
+  @doc """
+  Return column names for each split.
+  """
+  @spec column_names(t()) :: %{String.t() => [atom() | String.t()]}
+  def column_names(%__MODULE__{datasets: datasets}) do
+    Map.new(datasets, fn {name, dataset} -> {name, Dataset.column_names(dataset)} end)
+  end
+
+  @doc """
   Get summary information about the DatasetDict.
   """
   @spec info(t()) :: map()

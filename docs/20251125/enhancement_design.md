@@ -749,7 +749,7 @@ All new features are additive:
 - Documentation updates
 
 ### Medium Risk
-- Dataset loader implementations (need synthetic data)
+- Dataset loader implementations (HF integration + fixture coverage)
 - Statistical tests (correctness critical)
 - Test coverage completeness
 
@@ -757,7 +757,7 @@ All new features are additive:
 - None identified
 
 ### Mitigation Strategies
-1. **Synthetic Data Quality:** Use deterministic generation with seeds
+1. **Fixture Fidelity:** Use stable HF fixtures and Bypass for offline tests
 2. **Statistical Correctness:** Reference implementations and known results
 3. **Test Coverage:** Property-based testing for invariants
 4. **Performance:** Benchmarking before/after changes

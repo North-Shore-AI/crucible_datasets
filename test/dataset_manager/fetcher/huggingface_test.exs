@@ -23,7 +23,7 @@ defmodule CrucibleDatasets.Fetcher.HuggingFaceTest do
     end
   end
 
-  @moduletag :integration
+  @moduletag :live
 
   describe "list_files/2" do
     test "lists files for a dataset" do

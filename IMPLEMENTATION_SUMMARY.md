@@ -200,7 +200,7 @@ IO.puts("Accuracy: #{results.accuracy * 100}%")
 3. **Deterministic Sampling**: Random seeds ensure reproducibility
 4. **Extensibility**: Easy to add new datasets, metrics, and samplers
 5. **Type Safety**: Comprehensive type specs and validation
-6. **Testing First**: Generated synthetic data for reliable testing
+6. **Testing First**: HTTP mocks and fixtures for reliable testing
 
 ## Integration Points
 

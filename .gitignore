@@ -95,3 +95,5 @@ repomix*.xml
 
 # HuggingFace datasets reference (cloned repo)
 /datasets/
+/temp/
+dataset_manager-*

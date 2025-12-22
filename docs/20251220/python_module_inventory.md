@@ -3,6 +3,10 @@
 This document maps the HuggingFace datasets codebase to logical subsystems and proposed Elixir targets.
 It is the source of truth for a full parity port.
 
+**Status update (2025-12-21):** DataFiles, DatasetDict, IterableDataset, Features, and image decode
+are implemented in crucible_datasets for tinker parity. The Source/Format abstraction exists but
+loader macro refactoring remains future work.
+
 ## Entry Points and Orchestration
 | Python module | Role | Key behaviors | Elixir target |
 | --- | --- | --- | --- |

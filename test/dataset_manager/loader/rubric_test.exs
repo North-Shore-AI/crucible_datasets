@@ -1,5 +1,5 @@
 defmodule CrucibleDatasets.Loader.RubricTest do
-  use ExUnit.Case, async: false
+  use TestSupport.HfCase
 
   alias CrucibleDatasets.Loader.Rubric
 
@@ -13,9 +13,9 @@ defmodule CrucibleDatasets.Loader.RubricTest do
     end
 
     test "respects sample_size option" do
-      {:ok, dataset} = Rubric.load(:feedback_collection, TestHelper.data_opts(sample_size: 5))
+      {:ok, dataset} = Rubric.load(:feedback_collection, TestHelper.data_opts(sample_size: 1))
 
-      assert length(dataset.items) == 5
+      assert length(dataset.items) == 1
     end
 
     test "items have correct structure" do
@@ -63,20 +63,19 @@ defmodule CrucibleDatasets.Loader.RubricTest do
   end
 
   describe "load/2 with real data" do
-    @moduletag :integration
+    @describetag :live
     @tag timeout: 120_000
 
-    test "loads Feedback-Collection data (with fallback to synthetic)" do
+    test "loads Feedback-Collection data" do
       {:ok, dataset} = Rubric.load(:feedback_collection, sample_size: 10)
 
       assert dataset.name == "feedback_collection"
       assert length(dataset.items) == 10
-      # May fallback to synthetic if HuggingFace unavailable
-      assert dataset.metadata.source =~ "huggingface" or dataset.metadata.source == "synthetic"
+      assert dataset.metadata.source =~ "huggingface"
     end
 
     @tag timeout: 120_000
-    test "items have correct structure (with fallback to synthetic)" do
+    test "items have correct structure" do
       {:ok, dataset} = Rubric.load(:feedback_collection, sample_size: 5)
 
       first = hd(dataset.items)

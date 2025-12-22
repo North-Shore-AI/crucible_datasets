@@ -2,12 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1] - 2025-12-21
+
+### Added
+
+- **HuggingFace Parity API:** `load_dataset/2` with repo_id/config/split/streaming options
+- **Data Discovery:** New `CrucibleDatasets.DataFiles` resolver using `HfHub.Api.list_repo_tree/2` and `dataset_splits/2`
+- **Dataset Types:** DatasetDict and IterableDataset wired to the public API
+- **Streaming:** JSONL streaming support; Parquet streaming supported with batch warning
+- **Features + Images:** Features integrated into Dataset with Image decode via Vix/libvips
+- **New Loaders:** Real MMLU, HumanEval, and vision datasets (caltech101, oxford_flowers102, oxford_iiit_pet, stanford_cars)
+- **Examples/Docs:** New examples for `load_dataset`, DatasetDict, streaming, and vision; docs updated
+
+### Changed
+
+- **Registry + Loader Dispatcher:** Expanded to include all tinker datasets
+- **Live Tests:** `mix test.live` uses `@tag :live`
+- **Version:** 0.4.0 -> 0.4.1
+
 ## [0.4.0] - 2025-12-21
 
 ### Fixed
 
 - **HuggingFace Source:** Fixed nil path handling in `filter_by_config/2` and `filter_by_split/2` - HuggingFace API returns files with `rfilename` key instead of `path`
-- **All Loaders:** Added configurable fallback to synthetic data when HuggingFace downloads fail. Controlled by `config :crucible_datasets, fallback_to_synthetic: true/false` (default: false)
 - **Test Configuration:** Integration tests are now excluded by default to avoid slow network-dependent tests. Run with `mix test --include integration` to include them.
 
 ### Added
@@ -68,15 +85,13 @@ All notable changes to this project will be documented in this file.
   - Value validation and casting
 
 - **Enhanced Loaders:**
-  - MMLU: HuggingFace integration with fallback to synthetic
-  - HumanEval: HuggingFace integration with fallback to synthetic
-  - Graceful fallback to synthetic data when offline
+  - MMLU: HuggingFace integration
+  - HumanEval: HuggingFace integration
 
 ### Changed
 
 - Version bump from 0.3.0 to 0.4.0
 - Loaders now use Source/Format abstractions internally
-- Better error handling with synthetic fallbacks
 - All tests passing (282 tests, 0 failures)
 - No dialyzer warnings
 

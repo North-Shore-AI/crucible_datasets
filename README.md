@@ -15,7 +15,11 @@ CrucibleDatasets provides a unified interface for loading, caching, evaluating, 
 
 ## Features
 
-- **Unified Dataset Interface**: Single API for all benchmark types
+- **HuggingFace Parity API**: `load_dataset` with repo_id/config/split/streaming
+- **DatasetDict + IterableDataset**: split indexing + streaming iteration
+- **Streaming Support**: JSONL line-by-line; Parquet batch streaming with caveats
+- **Features Schema**: Value/ClassLabel/Sequence/Image + inference
+- **Image Decode**: Vix/libvips integration for vision datasets
 - **Automatic Caching**: Fast access with local caching and version tracking
 - **Comprehensive Metrics**: Exact match, F1 score, and custom evaluation metrics
 - **Dataset Sampling**: Random, stratified, and k-fold cross-validation
@@ -24,20 +28,25 @@ CrucibleDatasets provides a unified interface for loading, caching, evaluating, 
 
 ## Supported Datasets
 
-### Core Datasets
+### Core Benchmarks
 - **MMLU** (Massive Multitask Language Understanding) - 57 subjects across STEM, humanities, social sciences
 - **HumanEval** - Code generation benchmark with 164 programming problems
 - **GSM8K** - Grade school math word problems (8,500 problems)
 - **Custom Datasets** - Load from local JSONL files
 
-### HuggingFace Datasets (v0.4.0+)
+### HuggingFace Datasets (tinker parity)
 
 | Category | Datasets |
 |----------|----------|
 | **Math** | GSM8K, MATH-500, Hendrycks MATH, DeepMath, POLARIS |
 | **Chat/Instruction** | Tulu-3-SFT, No Robots |
 | **Preference/DPO** | HH-RLHF, HelpSteer2, HelpSteer3, UltraFeedback, Arena-140K, Tulu-3-Preference |
-| **Code** | DeepCoder |
+| **Code** | HumanEval, DeepCoder |
+| **Reasoning** | OpenThoughts3, DeepMath reasoning |
+| **Rubric** | Feedback-Collection |
+| **Vision** | Caltech101, Oxford Flowers 102, Oxford-IIIT Pet, Stanford Cars |
+
+`load_dataset/2` also works with any public HuggingFace dataset repo_id.
 
 ## Installation
 
@@ -46,7 +55,7 @@ Add `crucible_datasets` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:crucible_datasets, "~> 0.4.0"}
+    {:crucible_datasets, "~> 0.4.1"}
   ]
 end
 ```
@@ -61,10 +70,25 @@ def deps do
 end
 ```
 
+### System Dependencies
+
+Image decoding uses `vix` (libvips). Install libvips if you plan to use vision datasets:
+
+```bash
+# macOS
+brew install vips
+
+# Ubuntu/Debian
+apt-get install libvips-dev
+```
+
 ## Quick Start
 
 ```elixir
-# Load a dataset
+# Load by repo_id
+{:ok, dataset} = CrucibleDatasets.load_dataset("openai/gsm8k", config: "main", split: "train")
+
+# Or load by registry name
 {:ok, dataset} = CrucibleDatasets.load(:mmlu_stem, sample_size: 100)
 
 # Create predictions (example with perfect predictions)
@@ -116,24 +140,36 @@ This enables seamless integration with other Crucible components like `crucible_
 ### Loading Datasets
 
 ```elixir
-# Load MMLU STEM subset
+# Load by registry name
 {:ok, mmlu} = CrucibleDatasets.load(:mmlu_stem, sample_size: 200)
 
-# Load HumanEval
-{:ok, humaneval} = CrucibleDatasets.load(:humaneval)
+# Load by HuggingFace repo_id
+{:ok, gsm8k} = CrucibleDatasets.load_dataset("openai/gsm8k",
+  config: "main",
+  split: "train"
+)
 
-# Load GSM8K
-{:ok, gsm8k} = CrucibleDatasets.load(:gsm8k, sample_size: 150)
+# Load all splits (DatasetDict)
+{:ok, dd} = CrucibleDatasets.load_dataset("openai/gsm8k")
+train = dd["train"]
+
+# Streaming (IterableDataset)
+{:ok, stream} = CrucibleDatasets.load_dataset("openai/gsm8k",
+  split: "train",
+  streaming: true
+)
 
 # Load custom dataset from file
-{:ok, custom} = CrucibleDatasets.load("my_dataset",
-  source: "path/to/data.jsonl"
-)
+{:ok, custom} = CrucibleDatasets.load("my_dataset", source: "path/to/data.jsonl")
 ```
 
 ### Loading from HuggingFace
 
 ```elixir
+# Core benchmarks
+{:ok, mmlu} = CrucibleDatasets.Loader.MMLU.load(:mmlu, split: "test")
+{:ok, humaneval} = CrucibleDatasets.Loader.HumanEval.load()
+
 # Math datasets
 {:ok, gsm8k} = CrucibleDatasets.Loader.GSM8K.load(split: :train)
 {:ok, math500} = CrucibleDatasets.Loader.Math.load(:math_500)
@@ -149,8 +185,18 @@ This enables seamless integration with other Crucible components like `crucible_
 # Code datasets
 {:ok, deepcoder} = CrucibleDatasets.Loader.Code.load(:deepcoder)
 
-# Use synthetic data for offline testing
-{:ok, synthetic} = CrucibleDatasets.Loader.GSM8K.load(synthetic: true, sample_size: 100)
+# Reasoning + Rubric
+{:ok, thoughts} =
+  CrucibleDatasets.load_dataset("open-thoughts/OpenThoughts3-1.2M",
+    split: "train",
+    streaming: true
+  )
+
+{:ok, rubric} = CrucibleDatasets.Loader.Rubric.load(:feedback_collection)
+
+# Vision datasets
+{:ok, caltech} = CrucibleDatasets.Loader.Vision.load(:caltech101, sample_size: 5)
+
 ```
 
 ### Evaluation
@@ -248,6 +294,13 @@ All datasets follow a unified schema:
     total_items: 200,
     loaded_at: ~U[2024-01-15 10:30:00Z],
     checksum: "abc123..."
+  },
+  features: %CrucibleDatasets.Features{
+    schema: %{
+      "id" => CrucibleDatasets.Features.Value.string(),
+      "input" => {:dict, %{"question" => CrucibleDatasets.Features.Value.string()}},
+      "expected" => CrucibleDatasets.Features.Value.int64()
+    }
   }
 }
 ```
@@ -311,6 +364,9 @@ Or run individual examples:
 ```bash
 # Core functionality
 mix run examples/basic_usage.exs
+mix run examples/load_dataset_example.exs
+mix run examples/dataset_dict_example.exs
+mix run examples/streaming_example.exs
 mix run examples/evaluation_workflow.exs
 mix run examples/sampling_strategies.exs
 
@@ -318,8 +374,11 @@ mix run examples/sampling_strategies.exs
 mix run examples/math/gsm8k_example.exs
 mix run examples/math/math500_example.exs
 mix run examples/chat/tulu3_sft_example.exs
+# Full Tulu-3-SFT:
+mix run examples/chat/tulu3_sft_example.exs -- tulu3_sft
 mix run examples/preference/hh_rlhf_example.exs
 mix run examples/code/deepcoder_example.exs
+mix run examples/vision/vision_example.exs
 ```
 
 See [`examples/README.md`](examples/README.md) for detailed documentation.
@@ -329,8 +388,13 @@ See [`examples/README.md`](examples/README.md) for detailed documentation.
 Run the test suite:
 
 ```bash
-cd apps/dataset_manager
 mix test
+```
+
+Run live (network) tests:
+
+```bash
+mix test.live
 ```
 
 ## Static Analysis
@@ -347,6 +411,10 @@ mix dialyzer
 CrucibleDatasets/
 ├── CrucibleDatasets             # Main API
 ├── Dataset                      # Dataset schema
+├── DatasetDict                  # Split dictionary
+├── IterableDataset              # Streaming dataset
+├── Features                     # Features schema
+├── Media/Image                  # Image decode via Vix
 ├── EvaluationResult             # Evaluation result schema
 ├── Fetcher/
 │   └── HuggingFace              # HuggingFace Hub API client
@@ -534,6 +602,23 @@ Load a dataset with optional sampling.
 - `:source` - Path for custom datasets
 
 **Returns:** `{:ok, Dataset.t()}` or `{:error, term}`
+
+#### `CrucibleDatasets.load_dataset(repo_id, opts \\\\ [])`
+
+Load a HuggingFace dataset by repo_id.
+
+**Parameters:**
+- `repo_id`: HuggingFace repo id (e.g., `"openai/gsm8k"`)
+- `opts`: Keyword options
+
+**Options:**
+- `:config` - Dataset config/subset name
+- `:split` - Dataset split (when nil, loads all splits into DatasetDict)
+- `:streaming` - Return IterableDataset for lazy loading (requires split)
+- `:revision` - Git revision (default: `"main"`)
+- `:token` - HuggingFace API token
+
+**Returns:** `{:ok, Dataset.t() | DatasetDict.t() | IterableDataset.t()}` or `{:error, term}`
 
 #### `CrucibleDatasets.evaluate(predictions, opts \\\\ [])`
 
@@ -1094,13 +1179,20 @@ MIT License - see [LICENSE](https://github.com/North-Shore-AI/crucible_datasets/
 
 ## Changelog
 
-### v0.3.0 (Current)
+### v0.4.1 (Current)
+- HuggingFace-style `load_dataset/2` API with config/split/streaming options
+- DataFiles resolver for config + split discovery
+- DatasetDict and IterableDataset types with streaming JSONL support
+- Features schema integration + image decode via Vix/libvips
+- Real MMLU/HumanEval loaders and vision datasets
+- Updated examples and docs
+
+### v0.4.0
 - HuggingFace Hub integration with `Fetcher.HuggingFace` module
 - New dataset loaders: Math, Chat, Preference, Code
 - Structured type modules: Message, Conversation, Comparison, LabeledComparison
 - Extended Sampler with shuffle, take, skip, filter operations
 - Support for 14+ datasets from HuggingFace
-- Synthetic data fallback for offline testing
 - DatasetRef integration with CrucibleIR
 
 ### v0.2.0

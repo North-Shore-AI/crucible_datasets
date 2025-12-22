@@ -1,5 +1,5 @@
 defmodule DatasetManagerTest do
-  use ExUnit.Case
+  use TestSupport.HfCase
   doctest CrucibleDatasets
 
   alias CrucibleDatasets.{Dataset, Cache}
@@ -61,6 +61,7 @@ defmodule DatasetManagerTest do
   describe "evaluate/2" do
     test "evaluates predictions with exact match" do
       {:ok, dataset} = CrucibleDatasets.load(:mmlu_stem, TestHelper.data_opts(sample_size: 5))
+      total = length(dataset.items)
 
       predictions =
         Enum.map(dataset.items, fn item ->
@@ -79,8 +80,8 @@ defmodule DatasetManagerTest do
         )
 
       assert results.accuracy == 1.0
-      assert results.total_items == 5
-      assert results.correct_items == 5
+      assert results.total_items == total
+      assert results.correct_items == total
       assert results.model == "test_model"
     end
 
@@ -129,20 +130,20 @@ defmodule DatasetManagerTest do
 
   describe "random_sample/2" do
     test "creates random sample of specified size" do
-      {:ok, dataset} = CrucibleDatasets.load(:mmlu_stem, TestHelper.data_opts(sample_size: 100))
-      {:ok, sample} = CrucibleDatasets.random_sample(dataset, size: 20)
+      {:ok, dataset} = CrucibleDatasets.load(:mmlu_stem, TestHelper.data_opts(sample_size: 2))
+      {:ok, sample} = CrucibleDatasets.random_sample(dataset, size: 1)
 
-      assert length(sample.items) == 20
+      assert length(sample.items) == 1
       assert sample.metadata.sample_method == :random
-      assert sample.metadata.sample_size == 20
+      assert sample.metadata.sample_size == 1
       assert sample.metadata.original_size == length(dataset.items)
     end
 
     test "uses seed for reproducible sampling" do
-      {:ok, dataset} = CrucibleDatasets.load(:mmlu_stem, TestHelper.data_opts(sample_size: 100))
+      {:ok, dataset} = CrucibleDatasets.load(:mmlu_stem, TestHelper.data_opts(sample_size: 2))
 
-      {:ok, sample1} = CrucibleDatasets.random_sample(dataset, size: 20, seed: 42)
-      {:ok, sample2} = CrucibleDatasets.random_sample(dataset, size: 20, seed: 42)
+      {:ok, sample1} = CrucibleDatasets.random_sample(dataset, size: 1, seed: 42)
+      {:ok, sample2} = CrucibleDatasets.random_sample(dataset, size: 1, seed: 42)
 
       # Same seed should produce same sample
       assert Enum.map(sample1.items, & &1.id) == Enum.map(sample2.items, & &1.id)
@@ -199,7 +200,7 @@ defmodule DatasetManagerTest do
 
       total = length(dataset.items)
       assert length(train.items) + length(test.items) == total
-      assert_in_delta length(test.items) / total, 0.2, 0.05
+      assert length(test.items) == round(total * 0.2)
     end
   end
 

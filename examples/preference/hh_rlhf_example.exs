@@ -5,16 +5,36 @@
 # like HH-RLHF for DPO training.
 
 alias CrucibleDatasets.Loader.Preference
-alias CrucibleDatasets.Types.LabeledComparison
+alias CrucibleDatasets.Types.{Conversation, LabeledComparison}
 
 IO.puts("=" <> String.duplicate("=", 60))
 IO.puts("HH-RLHF Preference Dataset Example")
 IO.puts("=" <> String.duplicate("=", 60))
 IO.puts("")
 
-# Load synthetic data for demo
-IO.puts("Loading HH-RLHF dataset (synthetic mode)...")
-{:ok, dataset} = Preference.load(:hh_rlhf, synthetic: true, sample_size: 10)
+# Render either raw text or a Conversation into a short preview.
+preview = fn
+  nil, _limit ->
+    ""
+
+  text, limit when is_binary(text) ->
+    String.slice(text, 0, limit)
+
+  %Conversation{messages: messages}, limit ->
+    messages
+    |> Enum.map(fn msg -> "#{msg.role}: #{msg.content}" end)
+    |> Enum.join("\n")
+    |> String.slice(0, limit)
+
+  other, limit ->
+    other
+    |> inspect(limit: 5)
+    |> String.slice(0, limit)
+end
+
+# Load data
+IO.puts("Loading HH-RLHF dataset...")
+{:ok, dataset} = Preference.load(:hh_rlhf, sample_size: 10)
 
 IO.puts("Total comparisons: #{length(dataset.items)}")
 IO.puts("Available preference datasets: #{inspect(Preference.available_datasets())}")
@@ -33,13 +53,13 @@ dataset.items
   label = item.expected
 
   IO.puts("ID: #{item.id}")
-  IO.puts("Prompt: #{String.slice(comp.prompt, 0, 50)}...")
+  IO.puts("Prompt: #{preview.(comp.prompt, 50)}...")
   IO.puts("")
   IO.puts("Response A (#{if label.preferred == :a, do: "PREFERRED", else: "rejected"}):")
-  IO.puts("  #{String.slice(comp.response_a, 0, 60)}...")
+  IO.puts("  #{preview.(comp.response_a, 60)}...")
   IO.puts("")
   IO.puts("Response B (#{if label.preferred == :b, do: "PREFERRED", else: "rejected"}):")
-  IO.puts("  #{String.slice(comp.response_b, 0, 60)}...")
+  IO.puts("  #{preview.(comp.response_b, 60)}...")
   IO.puts("")
   IO.puts("Label: #{label.preferred}")
   IO.puts("Score for loss: #{LabeledComparison.to_score(label)}")

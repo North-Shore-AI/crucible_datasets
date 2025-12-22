@@ -4,6 +4,9 @@ Complete tinker-cookbook parity requires prerequisite Elixir packages that repla
 Python dependencies. The foundational package is hf_hub_ex, which serves as the single
 shared core for all HuggingFace operations in Elixir.
 
+**Status update (2025-12-21):** hf_hub_ex v0.1.1 is integrated into crucible_datasets for
+Hub API, downloads, caching, and extraction.
+
 Inline tags: [TK]=needed for tinker-cookbook parity, [NP]=not needed for tinker-cookbook parity.
 
 ## 1) hf_hub_ex [TK] (HuggingFace Hub - Core Foundation Package)
@@ -12,17 +15,19 @@ Inline tags: [TK]=needed for tinker-cookbook parity, [NP]=not needed for tinker-
 
 **Purpose:** Single shared core package mirroring Python's huggingface_hub. Used by both tinkex (Elixir training SDK) and crucible_datasets. This is the foundation for the entire HF ecosystem in Elixir.
 
-**Scope:**
+**Scope (implemented in hf_hub_ex v0.1.1):**
   - **HfHub.Api** - Hub API client
     - dataset list/search
     - config enumeration (get_dataset_config_names)
     - split enumeration (get_dataset_split_names)
     - file listing for repo + config
+    - repo tree listing with pagination
     - dataset metadata and info (dataset_info)
   - **HfHub.Download** - File downloads and streaming
     - streaming read interface (IO device/Stream)
     - streaming downloads for IterableDataset
     - parallel/resumable downloads
+    - optional archive extraction (zip/tar.gz/tgz/tar.xz/gz)
   - **HfHub.Cache** - Content-addressed caching
     - download caching (content-addressed)
     - checksum hashing and validation

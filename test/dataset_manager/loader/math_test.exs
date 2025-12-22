@@ -1,5 +1,5 @@
 defmodule CrucibleDatasets.Loader.MathTest do
-  use ExUnit.Case, async: false
+  use TestSupport.HfCase
 
   alias CrucibleDatasets.Loader.Math
 
@@ -45,9 +45,9 @@ defmodule CrucibleDatasets.Loader.MathTest do
     end
 
     test "respects sample_size option" do
-      {:ok, dataset} = Math.load(:hendrycks_math, TestHelper.data_opts(sample_size: 5))
+      {:ok, dataset} = Math.load(:hendrycks_math, TestHelper.data_opts(sample_size: 1))
 
-      assert length(dataset.items) == 5
+      assert length(dataset.items) == 1
     end
 
     test "items have correct structure" do

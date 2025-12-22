@@ -3,6 +3,10 @@
 **Date:** 2025-12-21
 **Status:** Design Review
 
+**Status Update (2025-12-21):** Tinker parity shipped without the full Source/Format abstraction.
+DataFiles + load_dataset resolve configs/splits directly via hf_hub_ex; Source abstraction remains
+deferred for a future refactor.
+
 ## Current Architecture Assessment
 
 ### What We Have

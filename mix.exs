@@ -1,7 +1,7 @@
 defmodule CrucibleDatasets.MixProject do
   use Mix.Project
 
-  @version "0.4.0"
+  @version "0.4.1"
   @source_url "https://github.com/North-Shore-AI/crucible_datasets"
 
   def project do
@@ -39,13 +39,19 @@ defmodule CrucibleDatasets.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
 
       # HuggingFace Hub client (API, downloads, caching, auth)
-      {:hf_hub, "~> 0.1.0"},
+      {:hf_hub, "~> 0.1.1"},
 
       # DataFrames + Parquet support
-      {:explorer, "~> 0.10"},
+      {:explorer, "~> 0.11.1"},
+
+      # Image decoding (libvips)
+      {:vix, "~> 0.35"},
 
       # Documentation
-      {:ex_doc, "~> 0.38", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.38", only: :dev, runtime: false},
+
+      # Test utilities
+      {:bypass, "~> 2.1", only: :test}
     ]
   end
 

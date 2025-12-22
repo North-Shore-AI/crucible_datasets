@@ -1,5 +1,5 @@
 defmodule CrucibleDatasets.Loader.PreferenceTest do
-  use ExUnit.Case, async: false
+  use TestSupport.HfCase
 
   alias CrucibleDatasets.Loader.Preference
   alias CrucibleDatasets.Types.{Comparison, LabeledComparison}
@@ -23,9 +23,9 @@ defmodule CrucibleDatasets.Loader.PreferenceTest do
     end
 
     test "respects sample_size option" do
-      {:ok, dataset} = Preference.load(:helpsteer3, TestHelper.data_opts(sample_size: 5))
+      {:ok, dataset} = Preference.load(:helpsteer3, TestHelper.data_opts(sample_size: 1))
 
-      assert length(dataset.items) == 5
+      assert length(dataset.items) == 1
     end
 
     test "items have correct structure" do

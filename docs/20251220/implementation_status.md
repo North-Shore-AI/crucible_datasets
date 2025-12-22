@@ -1,16 +1,19 @@
 # CrucibleDatasets Implementation Status
 
 **Date:** 2025-12-20
-**Version:** 0.3.0 (code reality audit)
-**Updated:** 2025-12-21 (hf_hub integration, tinker-cookbook alignment)
+**Version:** 0.4.1 (tinker parity)
+**Updated:** 2025-12-21 (API parity, streaming, vision, features)
 
 ## Core Infrastructure
 | Component | Status | Notes |
 | --- | --- | --- |
 | Dataset struct | OK | In-memory list of maps |
-| hf_hub_ex integration | ✅ NEW | v0.1.0 integrated for Hub API, downloads, caching |
+| hf_hub_ex integration | ✅ NEW | v0.1.1 integrated for Hub API, downloads, caching, tree listing, extraction |
 | Cache | ✅ OK | Now uses HfHub.Cache (LRU eviction, integrity validation) |
 | Fetcher.HuggingFace | ✅ OK | Refactored to use HfHub.Api + HfHub.Download |
+| DataFiles | ✅ OK | Config/split resolution via list_repo_tree + dataset_splits |
+| Features | ✅ OK | Value/ClassLabel/Sequence/Image with inference + decode |
+| Media.Image | ✅ OK | Vix/libvips image decode |
 | Sampler | OK | random/stratified/k_fold/train_test_split + shuffle/take/skip/filter |
 | Evaluator | OK | exact_match, f1, bleu, rouge |
 | Exporter | OK | csv/jsonl/markdown/html |
@@ -19,11 +22,11 @@
 ## API Surface
 | Component | Status | Notes |
 | --- | --- | --- |
-| CrucibleDatasets.Loader | Partial | Only mmlu/humaneval/gsm8k wired |
-| Registry | Partial | Only mmlu/humaneval/gsm8k listed |
-| DatasetDict | Missing | Required for split indexing |
-| IterableDataset | Missing | Required for streaming |
-| Dataset operations | Partial | Only via Sampler helpers |
+| CrucibleDatasets.Loader | ✅ OK | All tinker datasets wired |
+| Registry | ✅ OK | All tinker datasets listed |
+| DatasetDict | ✅ OK | Split indexing + transforms |
+| IterableDataset | ✅ OK | Streaming iterator + transforms |
+| Dataset operations | ✅ OK | map/filter/select/take/skip/batch/concat |
 
 ## Loader Status
 | Loader | Repo id in code | Real data | Notes |
@@ -44,23 +47,21 @@
 | Reasoning: OpenThoughts3 | open-thoughts/OpenThoughts3-1.2M | Yes | ✅ NEW - chain-of-thought traces |
 | Reasoning: DeepMath | zwhe99/DeepMath-103K | Yes | ✅ NEW - reasoning variant |
 | Rubric: Feedback-Collection | prometheus-eval/Feedback-Collection | Yes | ✅ NEW - rubric-based evaluation |
-| Code: DeepCoder | agentica-org/DeepCoder-Preview-Dataset | Yes | config handling missing |
-| HumanEval | openai/human-eval | No | Synthetic only |
-| MMLU | cais/mmlu | No | Synthetic only |
+| Code: DeepCoder | agentica-org/DeepCoder-Preview-Dataset | Yes | config handling supported |
+| HumanEval | openai/openai_humaneval | Yes | Real HF data |
+| MMLU | cais/mmlu | Yes | Real HF data |
+| Vision: caltech101 | dpdl-benchmark/caltech101 | Yes | Image decode + ClassLabel |
+| Vision: flowers102 | dpdl-benchmark/oxford_flowers102 | Yes | Image decode + ClassLabel |
+| Vision: oxford_iiit_pet | dpdl-benchmark/oxford_iiit_pet | Yes | Image decode + ClassLabel |
+| Vision: stanford_cars | tanganke/stanford_cars | Yes | Image decode + ClassLabel |
 
 ## Missing Datasets (tinker)
-- Vision datasets (caltech101, flowers102, oxford_iiit_pet, stanford_cars)
+- None
 
 ## Tests
-- Unit tests exist for Sampler, Evaluator, Fetcher, and loader parsing.
-- Integration tests exist but are network-gated; not run by default.
+- Unit tests cover DataFiles, load_dataset, Dataset, DatasetDict, vision loader.
+- Live tests are tagged with `:live` and excluded by default.
 
 ## Known Limitations
-- ~~No DataFiles/config enumeration~~ ✅ Config enumeration now via HfHub.Api.dataset_configs
-- Split matching is still heuristic-based.
-- ~~No download cache~~ ✅ Now uses HfHub.Cache with LRU eviction
-- ✅ Basic streaming available via HfHub.Download.download_stream
-- No DatasetDict or IterableDataset.
-- No media decoding (images/audio/video).
-- No file extraction (zip/tar/gz/xz).
-
+- Parquet streaming is limited (batch iteration; no true row-group streaming).
+- Split matching still relies on repo conventions in some datasets.

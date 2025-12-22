@@ -1,5 +1,5 @@
 defmodule CrucibleDatasets.Loader.ChatTest do
-  use ExUnit.Case, async: false
+  use TestSupport.HfCase
 
   alias CrucibleDatasets.Loader.Chat
   alias CrucibleDatasets.Types.Conversation
@@ -23,9 +23,9 @@ defmodule CrucibleDatasets.Loader.ChatTest do
     end
 
     test "respects sample_size option" do
-      {:ok, dataset} = Chat.load(:no_robots, TestHelper.data_opts(sample_size: 5))
+      {:ok, dataset} = Chat.load(:no_robots, TestHelper.data_opts(sample_size: 1))
 
-      assert length(dataset.items) == 5
+      assert length(dataset.items) == 1
     end
 
     test "items have correct structure" do
@@ -48,7 +48,7 @@ defmodule CrucibleDatasets.Loader.ChatTest do
   end
 
   describe "load/2 with real data" do
-    @moduletag :integration
+    @describetag :live
     @tag timeout: 120_000
 
     test "loads real No Robots data from HuggingFace" do

@@ -10,9 +10,9 @@ IO.puts("MATH-500 Dataset Example")
 IO.puts("=" <> String.duplicate("=", 60))
 IO.puts("")
 
-# Load MATH-500 (use synthetic for offline testing)
-IO.puts("Loading MATH-500 dataset (synthetic mode)...")
-{:ok, dataset} = Math.load(:math_500, synthetic: true, sample_size: 10)
+# Load MATH-500
+IO.puts("Loading MATH-500 dataset...")
+{:ok, dataset} = Math.load(:math_500, sample_size: 10)
 
 IO.puts("Total items: #{length(dataset.items)}")
 IO.puts("")

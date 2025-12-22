@@ -1,19 +1,42 @@
 # examples/chat/tulu3_sft_example.exs
 # Run with: mix run examples/chat/tulu3_sft_example.exs
+# Full Tulu-3-SFT: mix run examples/chat/tulu3_sft_example.exs -- tulu3_sft
 #
-# This example demonstrates loading chat datasets like Tulu-3-SFT.
+# This example demonstrates loading chat datasets like Tulu-3-SFT or No Robots.
 
 alias CrucibleDatasets.Loader.Chat
 alias CrucibleDatasets.Types.Conversation
 
+dataset_name =
+  case List.first(System.argv()) do
+    "tulu3_sft" ->
+      :tulu3_sft
+
+    "no_robots" ->
+      :no_robots
+
+    nil ->
+      :no_robots
+
+    other ->
+      IO.puts("Unknown dataset #{inspect(other)}; defaulting to no_robots.")
+      :no_robots
+  end
+
+dataset_label =
+  case dataset_name do
+    :tulu3_sft -> "Tulu-3-SFT"
+    :no_robots -> "No Robots"
+  end
+
 IO.puts("=" <> String.duplicate("=", 60))
-IO.puts("Tulu-3-SFT Chat Dataset Example")
+IO.puts("#{dataset_label} Chat Dataset Example")
 IO.puts("=" <> String.duplicate("=", 60))
 IO.puts("")
 
-# Load synthetic data for demo
-IO.puts("Loading Tulu-3-SFT dataset (synthetic mode)...")
-{:ok, dataset} = Chat.load(:tulu3_sft, synthetic: true, sample_size: 10)
+# Load data
+IO.puts("Loading #{dataset_label} dataset...")
+{:ok, dataset} = Chat.load(dataset_name, sample_size: 10)
 
 IO.puts("Total conversations: #{length(dataset.items)}")
 IO.puts("Available chat datasets: #{inspect(Chat.available_datasets())}")

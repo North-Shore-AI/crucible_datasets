@@ -104,13 +104,48 @@ defmodule CrucibleDatasets.FormatTest do
   describe "Format.Parquet" do
     alias CrucibleDatasets.Format.Parquet
 
+    setup do
+      tmp_path = System.tmp_dir!() |> Path.join("test_#{:rand.uniform(100_000)}.parquet")
+
+      parquet =
+        [
+          %{"id" => 1, "value" => "a"},
+          %{"id" => 2, "value" => "b"}
+        ]
+        |> Explorer.DataFrame.new()
+        |> Explorer.DataFrame.dump_parquet!()
+
+      File.write!(tmp_path, parquet)
+
+      Application.put_env(:crucible_datasets, :parquet_backend, TestSupport.ParquetBackend)
+
+      on_exit(fn ->
+        Application.delete_env(:crucible_datasets, :parquet_backend)
+        File.rm(tmp_path)
+      end)
+
+      %{path: tmp_path}
+    end
+
     test "handles?/1 returns true for .parquet files" do
       assert Parquet.handles?("data.parquet")
       refute Parquet.handles?("data.json")
     end
 
-    # Note: Parquet parsing requires a real parquet file which we can't easily create
-    # Integration tests will cover actual parquet parsing
+    test "parse/1 uses rechunk for parquet reader", %{path: path} do
+      {:ok, items} = Parquet.parse(path)
+
+      assert length(items) == 2
+      assert_receive {:from_parquet, ^path, opts}
+      assert Keyword.get(opts, :rechunk) == true
+    end
+
+    test "stream_rows/2 uses rechunk for parquet reader", %{path: path} do
+      Parquet.stream_rows(path, batch_size: 1) |> Enum.to_list()
+
+      assert_receive {:from_parquet, ^path, opts}
+      assert Keyword.get(opts, :rechunk) == true
+    end
   end
 
   describe "Format.detect/1" do

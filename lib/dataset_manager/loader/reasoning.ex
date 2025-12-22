@@ -20,8 +20,6 @@ defmodule CrucibleDatasets.Loader.Reasoning do
   alias CrucibleDatasets.Fetcher.HuggingFace
   alias CrucibleDatasets.Types.Conversation
 
-  require Logger
-
   @datasets %{
     open_thoughts3: %{
       repo_id: "open-thoughts/OpenThoughts3-1.2M",
@@ -45,7 +43,6 @@ defmodule CrucibleDatasets.Loader.Reasoning do
   ## Options
     * `:split` - Dataset split (default: "train")
     * `:sample_size` - Limit number of items
-    * `:synthetic` - Use synthetic data for testing (default: false)
     * `:token` - HuggingFace API token
 
   """
@@ -58,13 +55,7 @@ defmodule CrucibleDatasets.Loader.Reasoning do
         {:error, {:unknown_dataset, dataset_name, Map.keys(@datasets)}}
 
       dataset_info ->
-        synthetic = Keyword.get(opts, :synthetic, false)
-
-        if synthetic do
-          load_synthetic(dataset_name, opts)
-        else
-          load_from_huggingface(dataset_name, dataset_info, opts)
-        end
+        load_from_huggingface(dataset_name, dataset_info, opts)
     end
   end
 
@@ -95,15 +86,7 @@ defmodule CrucibleDatasets.Loader.Reasoning do
         {:ok, dataset}
 
       {:error, reason} ->
-        if Application.get_env(:crucible_datasets, :fallback_to_synthetic, false) do
-          Logger.warning(
-            "Failed to load #{dataset_name} from HuggingFace: #{inspect(reason)}, falling back to synthetic"
-          )
-
-          load_synthetic(dataset_name, opts)
-        else
-          {:error, {:huggingface_fetch_failed, reason}}
-        end
+        {:error, {:huggingface_fetch_failed, reason}}
     end
   end
 
@@ -224,64 +207,6 @@ defmodule CrucibleDatasets.Loader.Reasoning do
   end
 
   defp extract_final_answer(_), do: nil
-
-  defp load_synthetic(dataset_name, opts) do
-    sample_size = Keyword.get(opts, :sample_size, 20)
-
-    items = generate_synthetic_items(sample_size)
-
-    dataset =
-      Dataset.new(
-        to_string(dataset_name),
-        "1.0",
-        items,
-        %{
-          source: "synthetic",
-          license: "apache-2.0",
-          domain: "reasoning"
-        }
-      )
-
-    {:ok, dataset}
-  end
-
-  defp generate_synthetic_items(count) do
-    examples = [
-      {"What is 15% of 200?",
-       "<think>\nTo find 15% of 200, I need to multiply 200 by 0.15.\n200 × 0.15 = 30\n</think>\n\nThe answer is 30.",
-       "30"},
-      {"If a train travels 60 miles in 1 hour, how far will it travel in 2.5 hours?",
-       "<think>\nThe train travels at 60 miles per hour.\nIn 2.5 hours: 60 × 2.5 = 150 miles\n</think>\n\nThe train will travel 150 miles.",
-       "150"},
-      {"Solve for x: 3x + 7 = 22",
-       "<think>\n3x + 7 = 22\n3x = 22 - 7\n3x = 15\nx = 5\n</think>\n\nx = 5", "5"},
-      {"What is the sum of the first 5 prime numbers?",
-       "<think>\nThe first 5 prime numbers are: 2, 3, 5, 7, 11\nSum = 2 + 3 + 5 + 7 + 11 = 28\n</think>\n\nThe sum is 28.",
-       "28"},
-      {"A rectangle has a length of 8 cm and a width of 5 cm. What is its area?",
-       "<think>\nArea of rectangle = length × width\nArea = 8 × 5 = 40 cm²\n</think>\n\nThe area is 40 square centimeters.",
-       "40"}
-    ]
-
-    for i <- 0..(count - 1) do
-      {prompt, reasoning, answer} = Enum.at(examples, rem(i, length(examples)))
-
-      %{
-        id: "reasoning_#{i}",
-        input: %{
-          prompt: prompt
-        },
-        expected: %{
-          reasoning: reasoning,
-          answer: answer
-        },
-        metadata: %{
-          source: "synthetic",
-          has_reasoning: true
-        }
-      }
-    end
-  end
 
   @doc """
   List available reasoning datasets.

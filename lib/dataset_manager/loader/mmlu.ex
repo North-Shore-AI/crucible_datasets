@@ -92,7 +92,6 @@ defmodule CrucibleDatasets.Loader.MMLU do
     * `:split` - Split to load ("train", "test", "validation", "dev"). Default: "test"
     * `:subjects` - List of subjects to include. Default: all for mmlu, STEM for mmlu_stem
     * `:sample_size` - Limit number of items. Default: all
-    * `:offline` - If true, use synthetic data for testing. Default: false
 
   ## Examples
 
@@ -102,14 +101,7 @@ defmodule CrucibleDatasets.Loader.MMLU do
   """
   @spec load(atom(), keyword()) :: {:ok, Dataset.t()} | {:error, term()}
   def load(dataset_name, opts \\ []) do
-    # Support both :synthetic and legacy :offline option
-    synthetic = Keyword.get(opts, :synthetic, Keyword.get(opts, :offline, false))
-
-    if synthetic do
-      load_synthetic(dataset_name, opts)
-    else
-      load_from_huggingface(dataset_name, opts)
-    end
+    load_from_huggingface(dataset_name, opts)
   end
 
   @doc """
@@ -126,16 +118,15 @@ defmodule CrucibleDatasets.Loader.MMLU do
   def load_dataset_dict(dataset_name, opts \\ []) do
     splits = ["train", "validation", "test"]
 
-    # Load always succeeds now (with synthetic fallback)
-    datasets =
-      splits
-      |> Enum.map(fn split ->
-        {:ok, dataset} = load(dataset_name, Keyword.put(opts, :split, split))
-        {split, dataset}
-      end)
-      |> Map.new()
-
-    {:ok, DatasetDict.new(datasets)}
+    with {:ok, datasets} <-
+           Enum.reduce_while(splits, {:ok, %{}}, fn split, {:ok, acc} ->
+             case load(dataset_name, Keyword.put(opts, :split, split)) do
+               {:ok, dataset} -> {:cont, {:ok, Map.put(acc, split, dataset)}}
+               {:error, reason} -> {:halt, {:error, reason}}
+             end
+           end) do
+      {:ok, DatasetDict.new(datasets)}
+    end
   end
 
   # Load from HuggingFace
@@ -143,11 +134,18 @@ defmodule CrucibleDatasets.Loader.MMLU do
     split = Keyword.get(opts, :split, "test")
     sample_size = Keyword.get(opts, :sample_size)
 
+    config = Keyword.get(opts, :config)
+
     subjects =
-      case dataset_name do
-        :mmlu_stem -> Keyword.get(opts, :subjects, @stem_subjects)
-        :mmlu -> Keyword.get(opts, :subjects, @all_subjects)
-        _ -> Keyword.get(opts, :subjects, @all_subjects)
+      cond do
+        is_binary(config) and config not in ["all", "default"] ->
+          [config]
+
+        dataset_name == :mmlu_stem ->
+          Keyword.get(opts, :subjects, @stem_subjects)
+
+        true ->
+          Keyword.get(opts, :subjects, @all_subjects)
       end
 
     # MMLU on HuggingFace has files per subject and an "all" directory with all subjects
@@ -163,19 +161,11 @@ defmodule CrucibleDatasets.Loader.MMLU do
             success
 
           {:error, reason} ->
-            if Application.get_env(:crucible_datasets, :fallback_to_synthetic, false) do
-              load_synthetic(dataset_name, opts)
-            else
-              {:error, {:parse_failed, reason}}
-            end
+            {:error, {:parse_failed, reason}}
         end
 
       {:error, reason} ->
-        if Application.get_env(:crucible_datasets, :fallback_to_synthetic, false) do
-          load_synthetic(dataset_name, opts)
-        else
-          {:error, {:huggingface_download_failed, reason}}
-        end
+        {:error, {:huggingface_download_failed, reason}}
     end
   end
 
@@ -258,70 +248,6 @@ defmodule CrucibleDatasets.Loader.MMLU do
   end
 
   defp normalize_answer(_), do: 0
-
-  # Generate synthetic data for offline testing
-  defp load_synthetic(dataset_name, opts) do
-    subjects =
-      case dataset_name do
-        :mmlu_stem -> @stem_subjects
-        :mmlu -> @stem_subjects ++ ["history", "philosophy", "law"]
-        _ -> @stem_subjects
-      end
-
-    items = generate_sample_items(subjects, opts)
-
-    dataset =
-      Dataset.new(
-        to_string(dataset_name),
-        "1.0",
-        items,
-        %{
-          source: "synthetic",
-          license: "MIT",
-          domain: if(dataset_name == :mmlu_stem, do: "STEM", else: "general"),
-          subjects: subjects
-        }
-      )
-
-    {:ok, dataset}
-  end
-
-  # Generate sample MMLU items for testing
-  defp generate_sample_items(subjects, opts) do
-    count = Keyword.get(opts, :sample_size, 100)
-    items_per_subject = max(1, div(count, length(subjects)))
-
-    # Use a deterministic seed for consistent checksums across loads
-    seed = Keyword.get(opts, :seed, 12345)
-    :rand.seed(:exsss, {seed, seed, seed})
-
-    all_items =
-      subjects
-      |> Enum.flat_map(fn subject ->
-        Enum.map(1..items_per_subject//1, fn i ->
-          choices = ["Option A", "Option B", "Option C", "Option D"]
-          correct_answer = rem(i, 4)
-
-          %{
-            id: "mmlu_#{subject}_#{i}",
-            input: %{
-              question: "Sample #{subject} question #{i}?",
-              choices: choices
-            },
-            expected: correct_answer,
-            metadata: %{
-              subject: subject,
-              difficulty: Enum.random(["easy", "medium", "hard"])
-            }
-          }
-        end)
-      end)
-
-    # Shuffle with seeded random, then take the requested count
-    all_items
-    |> Enum.shuffle()
-    |> Enum.take(count)
-  end
 
   @doc """
   Parse MMLU CSV format (if loading from file).

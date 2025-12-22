@@ -18,7 +18,7 @@ The Elixir port uses a **2-package architecture**:
 | --- | --- | --- | --- |
 | huggingface_hub + hub.py | Hub metadata + file listing | hf_hub_ex (HfHub.Api) [TK] | Required for configs/splits/metadata |
 | fsspec + filesystems/* | Unified filesystem API | hf_hub_ex (HfHub.FS) [TK] | local + HTTP + hf:// URIs |
-| download_manager.py | Download + cache + extract | hf_hub_ex (HfHub.Download + HfHub.Cache) [TK] | Includes cache, checksums, locks, extraction |
+| download_manager.py | Download + cache + extract | hf_hub_ex (HfHub.Download + HfHub.Cache) [TK] | Includes cache, checksums, locks; extraction available in v0.1.1 |
 | streaming_download_manager.py | Streaming downloads | hf_hub_ex (HfHub.Download) [TK] | Required for IterableDataset |
 | utils/file_utils.py | Auth/tokens | hf_hub_ex (HfHub.Auth) [TK] | Token management |
 | features/features.py | Schema system | crucible_datasets (Features) [TK] | Value/ClassLabel/Sequence/Image |
@@ -39,7 +39,7 @@ The Elixir port uses a **2-package architecture**:
 ## Dependencies Required for Tinker Parity
 
 ### Elixir Packages
-- **hf_hub_ex** - Core HuggingFace hub operations (HfHub.Api, HfHub.FS, HfHub.Download, HfHub.Cache, HfHub.Auth)
+- **hf_hub** (hf_hub_ex) - Core HuggingFace hub operations (HfHub.Api, HfHub.FS, HfHub.Download, HfHub.Cache, HfHub.Auth)
 - **crucible_datasets** - Dataset types, Features system, format parsers, media wrappers
 - Req (HTTP)
 - Jason (JSON)
@@ -62,7 +62,7 @@ The Elixir port uses a **2-package architecture**:
 ## System-Level Dependencies
 
 ### Required for Tinker Parity
-- libvips (image decode)
+- libvips (image decode via Vix)
 
 ### Not Needed for Tinker Parity (Full Parity Only)
 - ffmpeg (audio/video decode)
@@ -72,4 +72,3 @@ The Elixir port uses a **2-package architecture**:
 ## Risk Notes
 - Parquet streaming is the highest-risk component for tinker parity.
 - Image decode is required for VLM datasets; keep audio/video optional.
-

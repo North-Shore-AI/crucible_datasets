@@ -20,6 +20,7 @@ separately.
 - Type adapters
   - Message/Conversation/Comparison/LabeledComparison normalization
   - MediaRef (image) adapters
+- DatasetDict/IterableDataset operations
 
 ## Integration Tests (network)
 - HuggingFace API
@@ -30,9 +31,11 @@ separately.
   - Tulu-3-SFT, No Robots
   - HH-RLHF, HelpSteer2/3, UltraFeedback, Arena, Tulu-Preference
   - DeepCoder configs
-  - Vision datasets (caltech101, flowers102, oxford_iiit_pet, stanford_cars)
+- Vision datasets (caltech101, flowers102, oxford_iiit_pet, stanford_cars)
 - Streaming datasets
   - OpenThoughts streaming iterator (first N records)
+
+Integration tests are tagged with `@tag :live` and excluded by default.
 
 ## Performance Checks (non-blocking)
 - Parquet load time for 10k rows
@@ -50,4 +53,3 @@ separately.
 - Arrow IPC and memory-mapped semantics
 - PDF and NIfTI feature support
 - Audio/video decoding
-

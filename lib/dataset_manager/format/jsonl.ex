@@ -29,6 +29,7 @@ defmodule CrucibleDatasets.Format.JSONL do
   @impl true
   def parse_stream(stream) do
     stream
+    |> line_stream()
     |> Stream.map(&String.trim/1)
     |> Stream.reject(&(&1 == ""))
     |> Stream.map(&Jason.decode!/1)
@@ -38,5 +39,27 @@ defmodule CrucibleDatasets.Format.JSONL do
   def handles?(path) do
     ext = Path.extname(path) |> String.downcase()
     ext in [".jsonl", ".jsonlines"]
+  end
+
+  defp line_stream(stream) do
+    Stream.transform(
+      stream,
+      fn -> "" end,
+      fn chunk, buffer ->
+        data = buffer <> chunk
+        parts = String.split(data, "\n", trim: false)
+
+        case parts do
+          [] ->
+            {[], buffer}
+
+          _ ->
+            {Enum.drop(parts, -1), List.last(parts)}
+        end
+      end,
+      fn buffer ->
+        if buffer == "", do: [], else: [buffer]
+      end
+    )
   end
 end

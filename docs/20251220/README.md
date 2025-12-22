@@ -25,11 +25,12 @@ The port is structured as a 2-package architecture:
 - crucible_datasets depends on hf_hub_ex for all hub operations.
 
 ## Status Snapshot (facts)
-- Fetcher.HuggingFace uses Req + Explorer to list, download, and parse parquet/jsonl/json/csv files.
-- Loaders exist for gsm8k, math, chat, preference, and code; MMLU and HumanEval are still synthetic.
-- Core API (CrucibleDatasets.Loader and Registry) still only wires mmlu/humaneval/gsm8k.
-- No DatasetDict or IterableDataset; no streaming; no download cache; no file extraction; no column projection.
-- Sampler, evaluator, exporter, and result_store are solid and tested.
+- Fetcher.HuggingFace uses hf_hub for file listing, downloads, caching, and extraction.
+- Loaders cover all tinker datasets (MMLU, HumanEval, Reasoning, Rubric, Vision included).
+- Core API wires all loaders; `load_dataset/2` supports repo_id/config/split/streaming with DataFiles resolution.
+- DatasetDict and IterableDataset implemented; JSONL streaming is supported; Parquet streaming is limited (batch-based).
+- Features system integrated with Image decode via Vix/libvips.
+- Sampler, evaluator, exporter, and result_store remain solid and tested.
 
 ## How To Use These Docs
 1. Read `docs/20251220/dependency_projects.md` to see prerequisite Elixir projects.

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Run all CrucibleDatasets examples
-# Usage: ./examples/run_all.sh
+# Usage: ./examples/run_all.sh [--live]
 
 set -e
 
@@ -9,14 +9,47 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_DIR"
 
+for arg in "$@"; do
+  case "$arg" in
+    --live)
+      export CRUCIBLE_DATASETS_LIVE_EXAMPLES=1
+      ;;
+    --help|-h)
+      echo "Usage: ./examples/run_all.sh [--live]"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $arg"
+      echo "Usage: ./examples/run_all.sh [--live]"
+      exit 1
+      ;;
+  esac
+done
+
 echo "============================================================"
 echo "CrucibleDatasets Examples"
 echo "============================================================"
 echo ""
 
+if [ -z "${CRUCIBLE_DATASETS_LIVE_EXAMPLES}" ]; then
+  echo "Live HuggingFace examples are disabled by default."
+  echo "Set CRUCIBLE_DATASETS_LIVE_EXAMPLES=1 or pass --live to run against live datasets."
+  echo ""
+  exit 0
+fi
+
+if [ -z "${HF_TOKEN}" ]; then
+  echo "HF_TOKEN is not set; gated datasets may be skipped or fail to load."
+  echo ""
+fi
+
 # Core functionality examples
 CORE_EXAMPLES=(
   "examples/basic_usage.exs"
+  "examples/load_dataset_example.exs"
+  "examples/dataset_dict_example.exs"
+  "examples/streaming_example.exs"
+  "examples/vision/vision_example.exs"
   "examples/evaluation_workflow.exs"
   "examples/sampling_strategies.exs"
   "examples/batch_evaluation.exs"

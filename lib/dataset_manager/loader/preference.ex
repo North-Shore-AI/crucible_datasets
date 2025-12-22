@@ -24,8 +24,6 @@ defmodule CrucibleDatasets.Loader.Preference do
   alias CrucibleDatasets.Fetcher.HuggingFace
   alias CrucibleDatasets.Types.{Comparison, LabeledComparison}
 
-  require Logger
-
   @datasets %{
     hh_rlhf: %{
       repo_id: "Anthropic/hh-rlhf",
@@ -70,7 +68,6 @@ defmodule CrucibleDatasets.Loader.Preference do
   ## Options
     * `:split` - Dataset split (default: "train")
     * `:sample_size` - Limit number of items
-    * `:synthetic` - Use synthetic data for testing (default: false)
     * `:token` - HuggingFace API token
 
   """
@@ -83,13 +80,7 @@ defmodule CrucibleDatasets.Loader.Preference do
         {:error, {:unknown_dataset, dataset_name, Map.keys(@datasets)}}
 
       dataset_info ->
-        synthetic = Keyword.get(opts, :synthetic, false)
-
-        if synthetic do
-          load_synthetic(dataset_name, opts)
-        else
-          load_from_huggingface(dataset_name, dataset_info, opts)
-        end
+        load_from_huggingface(dataset_name, dataset_info, opts)
     end
   end
 
@@ -125,15 +116,7 @@ defmodule CrucibleDatasets.Loader.Preference do
         {:ok, dataset}
 
       {:error, reason} ->
-        if Application.get_env(:crucible_datasets, :fallback_to_synthetic, false) do
-          Logger.warning(
-            "Failed to load #{dataset_name} from HuggingFace: #{inspect(reason)}, falling back to synthetic"
-          )
-
-          load_synthetic(dataset_name, opts)
-        else
-          {:error, {:huggingface_fetch_failed, reason}}
-        end
+        {:error, {:huggingface_fetch_failed, reason}}
     end
   end
 
@@ -363,76 +346,6 @@ defmodule CrucibleDatasets.Loader.Preference do
   end
 
   defp extract_content_text(_), do: ""
-
-  # Synthetic data loading
-
-  defp load_synthetic(dataset_name, opts) do
-    sample_size = Keyword.get(opts, :sample_size, 20)
-
-    items = generate_synthetic_items(sample_size)
-
-    dataset =
-      Dataset.new(
-        to_string(dataset_name),
-        "1.0",
-        items,
-        %{
-          source: "synthetic",
-          license: "mit",
-          domain: "preference"
-        }
-      )
-
-    {:ok, dataset}
-  end
-
-  defp generate_synthetic_items(count) do
-    prompts = [
-      "What is the best programming language?",
-      "How do I improve my writing?",
-      "Explain machine learning.",
-      "What is climate change?",
-      "How do computers work?"
-    ]
-
-    good_responses = [
-      "The best programming language depends on your use case. Python is great for ML, JavaScript for web dev.",
-      "To improve writing: read widely, practice daily, seek feedback, and revise your work multiple times.",
-      "Machine learning is a branch of AI where computers learn patterns from data to make predictions.",
-      "Climate change refers to long-term shifts in temperatures caused primarily by human activities.",
-      "Computers process binary data through CPUs, store info in memory, and execute software instructions."
-    ]
-
-    bad_responses = [
-      "IDK probably Java or something.",
-      "Just write more I guess.",
-      "It's like robots but smarter.",
-      "The weather changes sometimes.",
-      "Magic probably."
-    ]
-
-    for i <- 0..(count - 1) do
-      idx = rem(i, length(prompts))
-
-      comparison =
-        Comparison.new(
-          Enum.at(prompts, idx),
-          Enum.at(good_responses, idx),
-          Enum.at(bad_responses, idx)
-        )
-
-      %{
-        id: "pref_#{i}",
-        input: %{
-          comparison: comparison
-        },
-        expected: LabeledComparison.new(:a),
-        metadata: %{
-          source: "synthetic"
-        }
-      }
-    end
-  end
 
   @doc """
   List available preference datasets.

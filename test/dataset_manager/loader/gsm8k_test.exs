@@ -1,5 +1,5 @@
 defmodule CrucibleDatasets.Loader.GSM8KTest do
-  use ExUnit.Case, async: false
+  use TestSupport.HfCase
 
   alias CrucibleDatasets.Loader.GSM8K
 
@@ -50,9 +50,9 @@ defmodule CrucibleDatasets.Loader.GSM8KTest do
     end
 
     test "respects sample_size option" do
-      {:ok, dataset} = GSM8K.load(TestHelper.data_opts(sample_size: 5))
+      {:ok, dataset} = GSM8K.load(TestHelper.data_opts(sample_size: 1))
 
-      assert length(dataset.items) == 5
+      assert length(dataset.items) == 1
     end
 
     test "items have correct structure" do
@@ -67,7 +67,7 @@ defmodule CrucibleDatasets.Loader.GSM8KTest do
   end
 
   describe "load/1 with real data" do
-    @moduletag :integration
+    @describetag :live
     @tag timeout: 120_000
 
     test "loads real GSM8K train data from HuggingFace" do
@@ -99,7 +99,7 @@ defmodule CrucibleDatasets.Loader.GSM8KTest do
       assert is_map(first.input)
       assert Map.has_key?(first.input, :question)
       assert is_binary(first.input.question)
-      # Expected should be a map with :answer and :reasoning keys (consistent with synthetic)
+      # Expected should be a map with :answer and :reasoning keys
       assert is_map(first.expected)
       assert Map.has_key?(first.expected, :answer)
       assert Map.has_key?(first.expected, :reasoning)

@@ -670,7 +670,7 @@ crucible_datasets/
 2. **Pass@k Metric:** Not implemented (requires code execution sandbox)
 3. **Additional Datasets:** TruthfulQA, HellaSwag, ARC loaders not implemented
 4. **Statistical Analysis:** Advanced statistical functions deferred to Phase 4
-5. **Real Data Sources:** Still using synthetic data for demo datasets
+5. **Real Data Sources:** Demo datasets now load from HuggingFace; offline tests use HF stubs
 
 ---
 

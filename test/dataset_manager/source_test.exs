@@ -76,7 +76,7 @@ defmodule CrucibleDatasets.SourceTest do
   describe "Source.HuggingFace" do
     alias CrucibleDatasets.Source.HuggingFace
 
-    @moduletag :integration
+    @moduletag :live
 
     @tag timeout: 60_000
     test "list_files/2 returns files for valid repo" do

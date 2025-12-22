@@ -1,7 +1,7 @@
 defmodule CrucibleDatasets.DatasetOpsTest do
   use ExUnit.Case, async: true
 
-  alias CrucibleDatasets.Dataset
+  alias CrucibleDatasets.{Dataset, Features}
 
   @sample_items [
     %{id: "1", input: "What is 2+2?", expected: "4", metadata: %{difficulty: "easy"}},
@@ -114,6 +114,20 @@ defmodule CrucibleDatasets.DatasetOpsTest do
       first_item = hd(result.items)
       assert Map.has_key?(first_item, "id")
       assert Map.has_key?(first_item, "input")
+    end
+  end
+
+  describe "select/2 with indices" do
+    test "selects by index list", %{dataset: dataset} do
+      result = Dataset.select(dataset, [0, 2, 4])
+
+      assert Enum.map(result.items, & &1.id) == ["1", "3", "5"]
+    end
+
+    test "selects by range", %{dataset: dataset} do
+      result = Dataset.select(dataset, 1..3)
+
+      assert Enum.map(result.items, & &1.id) == ["2", "3", "4"]
     end
   end
 
@@ -358,6 +372,46 @@ defmodule CrucibleDatasets.DatasetOpsTest do
       assert :id in names
       assert :input in names
       assert :expected in names
+    end
+  end
+
+  describe "from_list/1" do
+    test "builds dataset with defaults" do
+      items = [%{id: "a", input: "x", expected: "y"}]
+      dataset = Dataset.from_list(items)
+
+      assert dataset.name == "dataset"
+      assert dataset.version == "1.0"
+      assert dataset.items == items
+    end
+  end
+
+  describe "from_dataframe/1" do
+    test "builds dataset from Explorer dataframe" do
+      df = Explorer.DataFrame.new(%{"id" => [1, 2], "text" => ["alpha", "beta"]})
+      dataset = Dataset.from_dataframe(df, name: "df_test")
+
+      assert dataset.name == "df_test"
+      assert length(dataset.items) == 2
+      assert Map.has_key?(hd(dataset.items), "id")
+    end
+  end
+
+  describe "features integration" do
+    test "infers features when not provided" do
+      items = [%{id: "1", input: "x", expected: "y"}]
+      dataset = Dataset.new("test", "1.0", items)
+
+      assert %Features{} = dataset.features
+      assert Map.has_key?(dataset.features.schema, "id")
+    end
+
+    test "uses provided features" do
+      items = [%{id: "1", input: "x", expected: "y"}]
+      features = Features.new(%{"id" => CrucibleDatasets.Features.Value.string()})
+      dataset = Dataset.new("test", "1.0", items, %{}, features)
+
+      assert dataset.features == features
     end
   end
 

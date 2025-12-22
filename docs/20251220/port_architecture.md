@@ -22,9 +22,13 @@ Core complexity lives in download/cache/extract, Arrow tables, streaming, and da
 ## Current Elixir Architecture (today)
 
 ```
+CrucibleDatasets.load_dataset
+  -> DataFiles (config + split discovery)
+  -> HfHub.Download + Format.parse
+  -> Dataset | DatasetDict | IterableDataset
+
 Loader.<dataset>
   -> Fetcher.HuggingFace (list files, download, parse)
-     -> Explorer.DataFrame.from_parquet!
   -> Dataset struct (list of maps)
 
 Sampler / Evaluator / Exporter / ResultStore are separate modules.
@@ -62,4 +66,3 @@ CrucibleDatasets.load_dataset
 ## Media Strategy
 - Default: MediaRef struct with path/bytes metadata
 - Optional decode: Vix (images), ffmpeg via Membrane/FFmpex (audio/video)
-

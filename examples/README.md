@@ -10,6 +10,20 @@ Run all examples:
 ./examples/run_all.sh
 ```
 
+Examples use live HuggingFace data. To run the helper script, set:
+
+```bash
+export CRUCIBLE_DATASETS_LIVE_EXAMPLES=1
+```
+
+Or pass `--live`:
+
+```bash
+./examples/run_all.sh --live
+```
+
+If a dataset is gated, also set `HF_TOKEN`.
+
 Or run individual examples:
 
 ```bash
@@ -29,7 +43,7 @@ mix run examples/math/gsm8k_example.exs
 
 | Example | Description | Command |
 |---------|-------------|---------|
-| [tulu3_sft_example.exs](chat/tulu3_sft_example.exs) | Tulu-3-SFT conversations, message handling | `mix run examples/chat/tulu3_sft_example.exs` |
+| [tulu3_sft_example.exs](chat/tulu3_sft_example.exs) | Chat conversations, message handling (defaults to no_robots; pass tulu3_sft for full dataset) | `mix run examples/chat/tulu3_sft_example.exs` or `mix run examples/chat/tulu3_sft_example.exs -- tulu3_sft` |
 
 ### Preference/DPO Datasets
 
@@ -48,13 +62,37 @@ mix run examples/math/gsm8k_example.exs
 | Example | Description | Command |
 |---------|-------------|---------|
 | [basic_usage.exs](basic_usage.exs) | Basic loading and evaluation | `mix run examples/basic_usage.exs` |
+| [load_dataset_example.exs](load_dataset_example.exs) | `load_dataset` API with repo_id/config/split | `mix run examples/load_dataset_example.exs` |
+| [dataset_dict_example.exs](dataset_dict_example.exs) | DatasetDict split indexing | `mix run examples/dataset_dict_example.exs` |
+| [streaming_example.exs](streaming_example.exs) | Streaming with IterableDataset | `mix run examples/streaming_example.exs` |
 | [evaluation_workflow.exs](evaluation_workflow.exs) | Complete evaluation pipeline | `mix run examples/evaluation_workflow.exs` |
 | [sampling_strategies.exs](sampling_strategies.exs) | Random, stratified, k-fold sampling | `mix run examples/sampling_strategies.exs` |
 | [batch_evaluation.exs](batch_evaluation.exs) | Multi-model batch evaluation | `mix run examples/batch_evaluation.exs` |
 | [cross_validation.exs](cross_validation.exs) | K-fold cross-validation | `mix run examples/cross_validation.exs` |
 | [custom_metrics.exs](custom_metrics.exs) | Implementing custom evaluation metrics | `mix run examples/custom_metrics.exs` |
 
+### Vision Datasets
+
+| Example | Description | Command |
+|---------|-------------|---------|
+| [vision_example.exs](vision/vision_example.exs) | Vision dataset loading + image features | `mix run examples/vision/vision_example.exs` |
+
 ## Dataset Loaders
+
+### HuggingFace `load_dataset` API
+
+```elixir
+# Load by repo id
+{:ok, dataset} = CrucibleDatasets.load_dataset("openai/gsm8k", config: "main", split: "train")
+
+# Load all splits as DatasetDict
+{:ok, dd} = CrucibleDatasets.load_dataset("openai/gsm8k")
+train = dd["train"]
+
+# Streaming
+{:ok, iterable} =
+  CrucibleDatasets.load_dataset("openai/gsm8k", split: "train", streaming: true)
+```
 
 ### Loading Real Data from HuggingFace
 
@@ -75,16 +113,6 @@ mix run examples/math/gsm8k_example.exs
 
 # Code datasets
 {:ok, deepcoder} = CrucibleDatasets.Loader.Code.load(:deepcoder)
-```
-
-### Using Synthetic Data (for testing)
-
-All loaders support a `synthetic: true` option for offline testing:
-
-```elixir
-{:ok, dataset} = CrucibleDatasets.Loader.GSM8K.load(synthetic: true, sample_size: 100)
-{:ok, dataset} = CrucibleDatasets.Loader.Chat.load(:tulu3_sft, synthetic: true)
-{:ok, dataset} = CrucibleDatasets.Loader.Preference.load(:hh_rlhf, synthetic: true)
 ```
 
 ## Type System
@@ -155,16 +183,13 @@ end)
 ## Environment Variables
 
 - `HF_TOKEN` - HuggingFace API token for authenticated access to private datasets
+- `CRUCIBLE_DATASETS_LIVE_EXAMPLES` - Set to `1` to run examples against live HF data
 
 ## Troubleshooting
 
 ### Network Issues
 
-If you get network errors, try using synthetic data:
-
-```elixir
-{:ok, dataset} = CrucibleDatasets.Loader.GSM8K.load(synthetic: true)
-```
+If you get network errors, verify connectivity and set `HF_TOKEN` for gated datasets.
 
 ### Large Datasets
 

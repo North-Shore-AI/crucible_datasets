@@ -202,6 +202,25 @@ defmodule CrucibleDatasets.DatasetDictTest do
     end
   end
 
+  describe "num_rows/1" do
+    test "returns row counts per split", %{dataset_dict: dataset_dict} do
+      counts = DatasetDict.num_rows(dataset_dict)
+
+      assert counts["train"] == 3
+      assert counts["test"] == 2
+      assert counts["validation"] == 1
+    end
+  end
+
+  describe "column_names/1" do
+    test "returns column names per split", %{dataset_dict: dataset_dict} do
+      names = DatasetDict.column_names(dataset_dict)
+
+      assert Enum.sort(names["train"]) == [:expected, :id, :input]
+      assert Enum.sort(names["test"]) == [:expected, :id, :input]
+    end
+  end
+
   describe "info/1" do
     test "returns summary info", %{dataset_dict: dataset_dict} do
       info = DatasetDict.info(dataset_dict)

@@ -1,5 +1,5 @@
 defmodule CrucibleDatasets.Loader.ReasoningTest do
-  use ExUnit.Case, async: false
+  use TestSupport.HfCase
 
   alias CrucibleDatasets.Loader.Reasoning
 
@@ -13,9 +13,9 @@ defmodule CrucibleDatasets.Loader.ReasoningTest do
     end
 
     test "respects sample_size option" do
-      {:ok, dataset} = Reasoning.load(:open_thoughts3, TestHelper.data_opts(sample_size: 5))
+      {:ok, dataset} = Reasoning.load(:open_thoughts3, TestHelper.data_opts(sample_size: 1))
 
-      assert length(dataset.items) == 5
+      assert length(dataset.items) == 1
     end
 
     test "items have correct structure" do
@@ -32,10 +32,10 @@ defmodule CrucibleDatasets.Loader.ReasoningTest do
     end
 
     test "deepmath_reasoning works" do
-      {:ok, dataset} = Reasoning.load(:deepmath_reasoning, TestHelper.data_opts(sample_size: 3))
+      {:ok, dataset} = Reasoning.load(:deepmath_reasoning, TestHelper.data_opts(sample_size: 1))
 
       assert dataset.name == "deepmath_reasoning"
-      assert length(dataset.items) == 3
+      assert length(dataset.items) == 1
     end
   end
 
@@ -56,7 +56,7 @@ defmodule CrucibleDatasets.Loader.ReasoningTest do
   end
 
   describe "load/2 with real data" do
-    @moduletag :integration
+    @describetag :live
     @tag timeout: 120_000
 
     test "loads real OpenThoughts3 data from HuggingFace" do

@@ -33,6 +33,7 @@ defmodule CrucibleDatasets.Features do
   """
 
   alias CrucibleDatasets.Features.{Value, ClassLabel, Sequence, Image, Audio}
+  alias CrucibleDatasets.Media.Image, as: ImageDecoder
 
   @type feature_type ::
           Value.t()
@@ -121,7 +122,18 @@ defmodule CrucibleDatasets.Features do
   end
 
   def validate_value(value, %Image{}) when is_binary(value), do: {:ok, value}
+
+  def validate_value(%{"bytes" => bytes} = value, %Image{}) when is_binary(bytes),
+    do: {:ok, value}
+
+  def validate_value(%{"path" => path} = value, %Image{}) when is_binary(path), do: {:ok, value}
+
   def validate_value(value, %Audio{}) when is_binary(value), do: {:ok, value}
+
+  def validate_value(%{"bytes" => bytes} = value, %Audio{}) when is_binary(bytes),
+    do: {:ok, value}
+
+  def validate_value(%{"path" => path} = value, %Audio{}) when is_binary(path), do: {:ok, value}
 
   def validate_value(value, {:dict, inner_schema}) when is_map(value) do
     results =
@@ -224,22 +236,77 @@ defmodule CrucibleDatasets.Features do
   """
   @spec infer(CrucibleDatasets.Dataset.t()) :: t()
   def infer(dataset) do
-    case dataset.items do
-      [] ->
-        new(%{})
-
-      [first | _] ->
-        schema =
-          first
-          |> Enum.map(fn {key, value} ->
-            key_str = if is_atom(key), do: Atom.to_string(key), else: key
-            {key_str, infer_type(value)}
-          end)
-          |> Map.new()
-
-        new(schema)
-    end
+    infer_from_items(dataset.items)
   end
+
+  @doc """
+  Infer features from a list of dataset items.
+  """
+  @spec infer_from_items([map()]) :: t()
+  def infer_from_items([]), do: new(%{})
+
+  def infer_from_items([first | _]) do
+    schema =
+      first
+      |> Enum.map(fn {key, value} ->
+        key_str = if is_atom(key), do: Atom.to_string(key), else: key
+        {key_str, infer_type(value)}
+      end)
+      |> Map.new()
+
+    new(schema)
+  end
+
+  @doc """
+  Decode a dataset item based on the feature schema.
+  """
+  @spec decode_item(map(), t()) :: map()
+  def decode_item(item, %__MODULE__{schema: schema}) do
+    Enum.reduce(schema, item, fn {column, feature}, acc ->
+      key = if Map.has_key?(acc, column), do: column, else: String.to_atom(column)
+
+      case Map.fetch(acc, key) do
+        {:ok, value} ->
+          case decode_value(value, feature) do
+            {:ok, decoded} -> Map.put(acc, key, decoded)
+            _ -> acc
+          end
+
+        :error ->
+          acc
+      end
+    end)
+  end
+
+  defp decode_value(value, %Image{decode: false}), do: {:ok, value}
+
+  defp decode_value(%{"bytes" => bytes}, %Image{} = image) when is_binary(bytes) do
+    ImageDecoder.decode(bytes, mode: image.mode)
+  end
+
+  defp decode_value(%{"path" => path}, %Image{} = image) when is_binary(path) do
+    ImageDecoder.decode_file(path, mode: image.mode)
+  end
+
+  defp decode_value(value, {:dict, inner_schema}) when is_map(value) do
+    decoded =
+      Enum.reduce(inner_schema, value, fn {key, feature}, acc ->
+        case Map.fetch(acc, key) do
+          {:ok, inner_value} ->
+            case decode_value(inner_value, feature) do
+              {:ok, inner_decoded} -> Map.put(acc, key, inner_decoded)
+              _ -> acc
+            end
+
+          :error ->
+            acc
+        end
+      end)
+
+    {:ok, decoded}
+  end
+
+  defp decode_value(value, _feature), do: {:ok, value}
 
   defp infer_type(value) when is_binary(value), do: Value.string()
   defp infer_type(value) when is_integer(value), do: Value.int64()
@@ -251,6 +318,12 @@ defmodule CrucibleDatasets.Features do
       [] -> Sequence.new(Value.string())
       [first | _] -> Sequence.new(infer_type(first))
     end
+  end
+
+  defp infer_type(value) when is_struct(value) do
+    value
+    |> Map.from_struct()
+    |> infer_type()
   end
 
   defp infer_type(value) when is_map(value) do

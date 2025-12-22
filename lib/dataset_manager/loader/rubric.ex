@@ -21,8 +21,6 @@ defmodule CrucibleDatasets.Loader.Rubric do
   alias CrucibleDatasets.Dataset
   alias CrucibleDatasets.Fetcher.HuggingFace
 
-  require Logger
-
   @datasets %{
     feedback_collection: %{
       repo_id: "prometheus-eval/Feedback-Collection",
@@ -40,7 +38,6 @@ defmodule CrucibleDatasets.Loader.Rubric do
   ## Options
     * `:split` - Dataset split (default: "train")
     * `:sample_size` - Limit number of items
-    * `:synthetic` - Use synthetic data for testing (default: false)
     * `:token` - HuggingFace API token
 
   """
@@ -53,13 +50,7 @@ defmodule CrucibleDatasets.Loader.Rubric do
         {:error, {:unknown_dataset, dataset_name, Map.keys(@datasets)}}
 
       dataset_info ->
-        synthetic = Keyword.get(opts, :synthetic, false)
-
-        if synthetic do
-          load_synthetic(dataset_name, opts)
-        else
-          load_from_huggingface(dataset_name, dataset_info, opts)
-        end
+        load_from_huggingface(dataset_name, dataset_info, opts)
     end
   end
 
@@ -102,15 +93,7 @@ defmodule CrucibleDatasets.Loader.Rubric do
         end
 
       {:error, reason} ->
-        if Application.get_env(:crucible_datasets, :fallback_to_synthetic, false) do
-          Logger.warning(
-            "Failed to load #{dataset_name} from HuggingFace: #{inspect(reason)}, falling back to synthetic"
-          )
-
-          load_synthetic(dataset_name, opts)
-        else
-          {:error, {:huggingface_fetch_failed, reason}}
-        end
+        {:error, {:huggingface_fetch_failed, reason}}
     end
   end
 
@@ -160,94 +143,6 @@ defmodule CrucibleDatasets.Loader.Rubric do
         description -> Map.put(acc, i, description)
       end
     end)
-  end
-
-  defp load_synthetic(dataset_name, opts) do
-    sample_size = Keyword.get(opts, :sample_size, 20)
-
-    items = generate_synthetic_items(sample_size)
-
-    dataset =
-      Dataset.new(
-        to_string(dataset_name),
-        "1.0",
-        items,
-        %{
-          source: "synthetic",
-          license: "apache-2.0",
-          domain: "rubric_evaluation"
-        }
-      )
-
-    {:ok, dataset}
-  end
-
-  defp generate_synthetic_items(count) do
-    examples = [
-      {
-        "Explain the water cycle in simple terms.",
-        "Clarity and completeness of explanation",
-        "The water cycle consists of evaporation, condensation, precipitation, and collection. " <>
-          "Water evaporates from bodies of water, rises as vapor, condenses into clouds, " <>
-          "falls as precipitation, and collects in bodies of water to repeat the cycle.",
-        %{
-          1 => "Response is unclear or completely incorrect",
-          2 => "Response shows some understanding but has major gaps",
-          3 => "Response is partially correct with minor gaps",
-          4 => "Response is mostly complete and accurate",
-          5 => "Response is comprehensive, clear, and fully accurate"
-        }
-      },
-      {
-        "What are the benefits of regular exercise?",
-        "Comprehensiveness and accuracy of health information",
-        "Regular exercise improves cardiovascular health, strengthens muscles and bones, " <>
-          "helps maintain healthy weight, reduces stress and anxiety, improves sleep quality, " <>
-          "and boosts overall energy levels.",
-        %{
-          1 => "Response contains incorrect or harmful information",
-          2 => "Response mentions 1-2 benefits with limited accuracy",
-          3 => "Response covers some benefits accurately",
-          4 => "Response covers multiple benefits accurately",
-          5 => "Response is comprehensive, accurate, and well-organized"
-        }
-      },
-      {
-        "How do you make a peanut butter and jelly sandwich?",
-        "Completeness and clarity of instructions",
-        "1. Gather bread, peanut butter, jelly, and a knife. " <>
-          "2. Spread peanut butter on one slice of bread. " <>
-          "3. Spread jelly on the other slice. " <>
-          "4. Press the two slices together.",
-        %{
-          1 => "Instructions are missing critical steps or incorrect",
-          2 => "Instructions are incomplete or confusing",
-          3 => "Instructions cover main steps but lack detail",
-          4 => "Instructions are clear and mostly complete",
-          5 => "Instructions are clear, complete, and easy to follow"
-        }
-      }
-    ]
-
-    for i <- 0..(count - 1) do
-      {instruction, criteria, reference, rubric} = Enum.at(examples, rem(i, length(examples)))
-
-      %{
-        id: "rubric_#{i}",
-        input: %{
-          instruction: instruction,
-          criteria: criteria
-        },
-        expected: %{
-          reference_answer: reference,
-          rubric: rubric
-        },
-        metadata: %{
-          source: "synthetic",
-          has_rubric: true
-        }
-      }
-    end
   end
 
   @doc """

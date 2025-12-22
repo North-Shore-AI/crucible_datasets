@@ -3,19 +3,19 @@
 #
 # This example demonstrates loading code generation datasets like DeepCoder.
 
-alias CrucibleDatasets.Loader.Code
+alias CrucibleDatasets.Loader.Code, as: CodeLoader
 
 IO.puts("=" <> String.duplicate("=", 60))
 IO.puts("DeepCoder Code Dataset Example")
 IO.puts("=" <> String.duplicate("=", 60))
 IO.puts("")
 
-# Load synthetic data for demo
-IO.puts("Loading DeepCoder dataset (synthetic mode)...")
-{:ok, dataset} = Code.load(:deepcoder, synthetic: true, sample_size: 10)
+# Load data
+IO.puts("Loading DeepCoder dataset...")
+{:ok, dataset} = CodeLoader.load(:deepcoder, sample_size: 10)
 
 IO.puts("Total problems: #{length(dataset.items)}")
-IO.puts("Available code datasets: #{inspect(Code.available_datasets())}")
+IO.puts("Available code datasets: #{inspect(CodeLoader.available_datasets())}")
 IO.puts("")
 
 # Show sample code problems

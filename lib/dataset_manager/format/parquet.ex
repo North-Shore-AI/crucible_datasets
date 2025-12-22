@@ -18,9 +18,11 @@ defmodule CrucibleDatasets.Format.Parquet do
 
   @impl true
   def parse(path) do
-    case Explorer.DataFrame.from_parquet(path) do
+    backend = parquet_backend()
+
+    case backend.from_parquet(path, rechunk: true) do
       {:ok, df} ->
-        items = Explorer.DataFrame.to_rows(df)
+        items = backend.to_rows(df)
         {:ok, items}
 
       {:error, reason} ->
@@ -37,9 +39,54 @@ defmodule CrucibleDatasets.Format.Parquet do
     raise "Parquet format does not support streaming. Use parse/1 instead."
   end
 
+  @doc """
+  Stream Parquet rows in batches.
+
+  Note: Explorer reads the full file up-front; this only batches the iteration.
+  """
+  @spec stream_rows(String.t(), keyword()) :: Enumerable.t()
+  def stream_rows(path, opts \\ []) do
+    batch_size = Keyword.get(opts, :batch_size, 1000)
+    backend = parquet_backend()
+
+    Stream.resource(
+      fn ->
+        case backend.from_parquet(path, rechunk: true) do
+          {:ok, df} ->
+            %{
+              dataframe: df,
+              total_rows: backend.n_rows(df),
+              offset: 0,
+              batch_size: batch_size
+            }
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+      end,
+      fn
+        {:error, _reason} = state ->
+          {:halt, state}
+
+        %{offset: offset, total_rows: total} = state when offset >= total ->
+          {:halt, state}
+
+        %{dataframe: df, offset: offset, batch_size: size} = state ->
+          batch_df = backend.slice(df, offset, size)
+          rows = backend.to_rows(batch_df)
+          {rows, %{state | offset: offset + size}}
+      end,
+      fn _ -> :ok end
+    )
+  end
+
   @impl true
   def handles?(path) do
     ext = Path.extname(path) |> String.downcase()
     ext == ".parquet"
+  end
+
+  defp parquet_backend do
+    Application.get_env(:crucible_datasets, :parquet_backend, Explorer.DataFrame)
   end
 end

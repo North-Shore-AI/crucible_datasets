@@ -22,21 +22,25 @@ defmodule CrucibleDatasets.Dataset do
           | integer()
           | %{answer: String.t(), reasoning: String.t()}
 
+  alias CrucibleDatasets.Features
+
   @type t :: %__MODULE__{
           name: String.t(),
           version: String.t(),
           items: [item()],
-          metadata: map()
+          metadata: map(),
+          features: Features.t() | nil
         }
 
   @enforce_keys [:name, :version, :items, :metadata]
-  defstruct [:name, :version, :items, :metadata]
+  defstruct [:name, :version, :items, :metadata, features: nil]
 
   @doc """
   Create a new dataset with validation.
   """
-  def new(name, version, items, metadata \\ %{}) do
+  def new(name, version, items, metadata \\ %{}, features \\ nil) do
     now = DateTime.utc_now()
+    features = features || Features.infer_from_items(items)
 
     full_metadata =
       Map.merge(
@@ -55,7 +59,8 @@ defmodule CrucibleDatasets.Dataset do
       name: name,
       version: version,
       items: items,
-      metadata: full_metadata
+      metadata: full_metadata,
+      features: features
     }
   end
 
@@ -183,8 +188,31 @@ defmodule CrucibleDatasets.Dataset do
       Dataset.select(dataset, [:id, :input])
 
   """
-  @spec select(t(), [atom() | String.t()]) :: t()
-  def select(%__MODULE__{} = dataset, columns) when is_list(columns) do
+  @spec select(t(), [atom() | String.t()] | [non_neg_integer()] | Range.t()) :: t()
+  def select(%__MODULE__{} = dataset, %Range{} = range) do
+    new_items = Enum.slice(dataset.items, range)
+    update_items(dataset, new_items)
+  end
+
+  def select(%__MODULE__{} = dataset, indices) when is_list(indices) do
+    cond do
+      indices == [] ->
+        update_items(dataset, [])
+
+      Enum.all?(indices, &is_integer/1) ->
+        new_items =
+          indices
+          |> Enum.map(&Enum.at(dataset.items, &1))
+          |> Enum.reject(&is_nil/1)
+
+        update_items(dataset, new_items)
+
+      true ->
+        select_columns(dataset, indices)
+    end
+  end
+
+  defp select_columns(%__MODULE__{} = dataset, columns) do
     new_items =
       Enum.map(dataset.items, fn item ->
         Map.take(item, columns)
@@ -258,7 +286,8 @@ defmodule CrucibleDatasets.Dataset do
         name: "#{dataset.name}_batch_#{idx}",
         version: dataset.version,
         items: items,
-        metadata: Map.put(dataset.metadata, :total_items, length(items))
+        metadata: Map.put(dataset.metadata, :total_items, length(items)),
+        features: dataset.features
       }
     end)
   end
@@ -568,6 +597,38 @@ defmodule CrucibleDatasets.Dataset do
   @spec column_names(t()) :: [atom() | String.t()]
   def column_names(%__MODULE__{items: []}), do: []
   def column_names(%__MODULE__{items: [first | _]}), do: Map.keys(first)
+
+  @doc """
+  Create a dataset from a list of maps.
+
+  ## Options
+    * `:name` - Dataset name (default: \"dataset\")\n    * `:version` - Dataset version (default: \"1.0\")\n    * `:metadata` - Dataset metadata map (default: %{})\n
+  """
+  @spec from_list([map()], keyword()) :: t()
+  def from_list(items, opts \\ []) when is_list(items) do
+    name = Keyword.get(opts, :name, "dataset")
+    version = Keyword.get(opts, :version, "1.0")
+    metadata = Keyword.get(opts, :metadata, %{})
+
+    new(name, version, items, metadata)
+  end
+
+  @doc """
+  Create a dataset from an Explorer DataFrame.
+  """
+  @spec from_dataframe(Explorer.DataFrame.t(), keyword()) :: t()
+  def from_dataframe(%Explorer.DataFrame{} = df, opts \\ []) do
+    items =
+      df
+      |> Explorer.DataFrame.to_rows()
+      |> Enum.map(&stringify_keys/1)
+
+    from_list(items, opts)
+  end
+
+  defp stringify_keys(map) do
+    Map.new(map, fn {k, v} -> {to_string(k), v} end)
+  end
 
   # Helper to update items and recalculate metadata
   defp update_items(dataset, new_items) do

@@ -225,14 +225,26 @@ defmodule CrucibleDatasets.Fetcher.HuggingFace do
     split = Keyword.get(opts, :split, "train")
     config = Keyword.get(opts, :config)
     token = Keyword.get(opts, :token)
+    revision = Keyword.get(opts, :revision, "main")
     # Limit files for large sharded datasets (default: 3 files max)
     max_files = Keyword.get(opts, :max_files, 3)
 
-    with {:ok, files} <- list_all_files(repo_id, config, token),
-         {:ok, data_files} <- find_split_files(files, split, config),
-         limited_files = Enum.take(data_files, max_files),
-         {:ok, data} <- download_and_parse_files(repo_id, limited_files, token) do
+    with {:ok, %{splits: splits}} <-
+           CrucibleDatasets.DataFiles.resolve(repo_id,
+             config: config,
+             split: split,
+             revision: revision,
+             token: token
+           ),
+         files when is_list(files) <- Map.get(splits, to_string(split)),
+         true <- files != [],
+         limited_files = Enum.take(files, max_files),
+         {:ok, data} <- download_and_parse_files(repo_id, limited_files, revision, token) do
       {:ok, data}
+    else
+      nil -> {:error, {:split_not_found, split}}
+      false -> {:error, {:split_not_found, split}}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -324,155 +336,23 @@ defmodule CrucibleDatasets.Fetcher.HuggingFace do
 
   # Private helpers
 
-  defp list_all_files(repo_id, config, token) do
-    # Try to list files recursively
-    # First try the root, then try with config prefix
-
-    case list_files(repo_id, token: token) do
-      {:ok, files} ->
-        # If config specified, filter by config path
-        files =
-          if config do
-            Enum.filter(files, fn f ->
-              path = f["path"] || ""
-
-              String.starts_with?(path, config) or
-                String.starts_with?(path, "data/#{config}") or
-                String.contains?(path, "/#{config}/")
-            end)
-          else
-            files
-          end
-
-        # Also try to list subdirectories
-        {:ok, expand_directories(repo_id, files, token)}
-
-      error ->
-        error
-    end
-  end
-
-  defp expand_directories(repo_id, files, token) do
-    # Find directories and expand them
-    {dirs, regular_files} =
-      Enum.split_with(files, fn f ->
-        f["type"] == "directory"
-      end)
-
-    expanded =
-      Enum.flat_map(dirs, fn dir ->
-        path = dir["path"]
-
-        case list_files(repo_id, config: path, token: token) do
-          {:ok, sub_files} ->
-            # Prefix paths with parent directory
-            Enum.map(sub_files, fn f ->
-              current_path = f["path"] || ""
-
-              if String.starts_with?(current_path, path) do
-                f
-              else
-                Map.put(f, "path", "#{path}/#{current_path}")
-              end
-            end)
-
-          _ ->
-            []
-        end
-      end)
-
-    regular_files ++ expanded
-  end
-
-  defp find_split_files(files, split, config) do
-    # Find parquet or jsonl files for the requested split
-    # Common patterns:
-    # - data/{split}-XXXXX-of-XXXXX.parquet
-    # - {split}/XXXXX.parquet
-    # - {config}/{split}.parquet
-    # - main/{split}.jsonl
-
-    split_str = to_string(split)
-
-    matching =
-      files
-      |> Enum.filter(fn f ->
-        path = f["path"] || ""
-        is_data_file?(path) and matches_split?(path, split_str, config)
-      end)
-      |> Enum.sort_by(fn f -> f["path"] end)
-
-    case matching do
-      [] ->
-        # Try looser matching if no exact match
-        fallback =
-          files
-          |> Enum.filter(fn f ->
-            path = f["path"] || ""
-            is_data_file?(path) and String.contains?(path, split_str)
-          end)
-          |> Enum.sort_by(fn f -> f["path"] end)
-
-        case fallback do
-          [] -> {:error, {:no_files_for_split, split, Enum.map(files, & &1["path"])}}
-          found -> {:ok, found}
-        end
-
-      found ->
-        {:ok, found}
-    end
-  end
-
-  defp is_data_file?(path) do
-    String.ends_with?(path, ".parquet") or
-      String.ends_with?(path, ".jsonl") or
-      String.ends_with?(path, ".jsonl.gz") or
-      String.ends_with?(path, ".json") or
-      String.ends_with?(path, ".json.gz") or
-      String.ends_with?(path, ".csv") or
-      String.ends_with?(path, ".csv.gz")
-  end
-
-  defp matches_split?(path, split, config) do
-    path_lower = String.downcase(path)
-    split_lower = String.downcase(split)
-    filename = Path.basename(path_lower)
-
-    # Common patterns:
-    # - data/train-00000-of-00001.parquet
-    # - train/00000.parquet
-    # - config/train.jsonl
-    # - harmless-base/train.jsonl.gz (filename starts with split)
-    String.contains?(path_lower, "/#{split_lower}") or
-      String.contains?(path_lower, "/#{split_lower}-") or
-      String.contains?(path_lower, "/#{split_lower}.") or
-      String.starts_with?(path_lower, "#{split_lower}/") or
-      String.starts_with?(path_lower, "#{split_lower}-") or
-      String.starts_with?(filename, "#{split_lower}.") or
-      String.starts_with?(filename, "#{split_lower}-") or
-      (config && String.contains?(path_lower, "#{config}/#{split_lower}"))
-  end
-
-  defp download_and_parse_files(repo_id, files, token) do
-    # Download and parse all files, concatenating results
+  defp download_and_parse_files(repo_id, files, revision, token) do
     results =
       Enum.map(files, fn file ->
-        path = file["path"]
-        download_opts = if token, do: [token: token], else: []
+        path = file.path
 
-        # For parquet files, use cached path directly (more efficient)
-        # For other formats, read contents
+        download_opts = [
+          repo_id: repo_id,
+          filename: path,
+          repo_type: :dataset,
+          revision: revision,
+          token: token,
+          extract: true
+        ]
+
         result =
-          if String.ends_with?(path, ".parquet") do
-            with {:ok, cache_path} <- download_file_to_cache(repo_id, path, download_opts),
-                 {:ok, rows} <- parse_parquet_file(cache_path) do
-              rows
-            end
-          else
-            with {:ok, data} <- download_file(repo_id, path, download_opts),
-                 {:ok, rows} <- parse_file(data, path) do
-              rows
-            end
+          with {:ok, local_path} <- HfHub.Download.hf_hub_download(download_opts) do
+            parse_downloaded_path(local_path, file.format)
           end
 
         case result do
@@ -481,6 +361,9 @@ defmodule CrucibleDatasets.Fetcher.HuggingFace do
             []
 
           rows when is_list(rows) ->
+            rows
+
+          {:ok, rows} when is_list(rows) ->
             rows
         end
       end)
@@ -494,126 +377,43 @@ defmodule CrucibleDatasets.Fetcher.HuggingFace do
     end
   end
 
-  defp parse_file(data, path) do
-    # Decompress if gzipped
-    {data, path} = maybe_decompress(data, path)
+  defp parse_downloaded_path(path, format_hint) do
+    paths =
+      if File.dir?(path) do
+        Path.wildcard(Path.join(path, "**/*"))
+        |> Enum.reject(&File.dir?/1)
+      else
+        [path]
+      end
 
-    cond do
-      String.ends_with?(path, ".jsonl") ->
-        parse_jsonl(data)
-
-      String.ends_with?(path, ".json") ->
-        parse_json(data)
-
-      String.ends_with?(path, ".csv") ->
-        parse_csv(data)
-
-      true ->
-        {:error, {:unsupported_format, path}}
-    end
-  end
-
-  defp maybe_decompress(data, path) do
-    if String.ends_with?(path, ".gz") do
-      {:zlib.gunzip(data), String.replace_suffix(path, ".gz", "")}
-    else
-      {data, path}
-    end
-  rescue
-    _ -> {data, path}
-  end
-
-  defp parse_parquet_file(file_path) do
-    # First validate the parquet file has correct magic bytes
-    case validate_parquet_file(file_path) do
-      :ok ->
-        try do
-          df = Explorer.DataFrame.from_parquet!(file_path)
-          rows = Explorer.DataFrame.to_rows(df)
-          {:ok, rows}
-        rescue
-          e ->
-            # Delete corrupted file so it gets re-downloaded next time
-            File.rm(file_path)
-            {:error, {:parquet_parse_error, Exception.message(e)}}
-        end
-
-      {:error, reason} ->
-        # Delete corrupted file so it gets re-downloaded next time
-        File.rm(file_path)
-        {:error, {:parquet_validation_failed, reason}}
-    end
-  end
-
-  defp validate_parquet_file(file_path) do
-    # Parquet files must start with "PAR1" and end with "PAR1"
-    case File.open(file_path, [:read, :binary]) do
-      {:ok, file} ->
-        try do
-          header = IO.binread(file, 4)
-          :file.position(file, {:eof, -4})
-          footer = IO.binread(file, 4)
-          File.close(file)
-
-          cond do
-            not is_binary(header) or byte_size(header) < 4 -> {:error, :invalid_header}
-            not is_binary(footer) or byte_size(footer) < 4 -> {:error, :invalid_footer}
-            header != "PAR1" -> {:error, :invalid_header}
-            footer != "PAR1" -> {:error, :invalid_footer}
-            true -> :ok
+    results =
+      Enum.map(paths, fn file_path ->
+        format =
+          if format_hint == :unknown do
+            CrucibleDatasets.Format.detect(file_path)
+          else
+            format_hint
           end
-        rescue
-          _ ->
-            File.close(file)
-            {:error, :file_read_error}
-        end
 
-      {:error, reason} ->
-        {:error, {:file_open_error, reason}}
-    end
-  end
+        parser = CrucibleDatasets.Format.parser_for(format)
 
-  defp parse_jsonl(data) when is_binary(data) do
-    rows =
-      data
-      |> String.split("\n", trim: true)
-      |> Enum.map(fn line ->
-        case Jason.decode(line) do
-          {:ok, row} -> row
-          {:error, _} -> nil
+        if is_nil(parser) do
+          {:ok, []}
+        else
+          apply(parser, :parse, [file_path])
         end
       end)
-      |> Enum.reject(&is_nil/1)
 
-    {:ok, rows}
+    merge_parse_results(results)
   end
 
-  defp parse_json(data) when is_binary(data) do
-    case Jason.decode(data) do
-      {:ok, rows} when is_list(rows) -> {:ok, rows}
-      {:ok, obj} when is_map(obj) -> {:ok, [obj]}
-      {:error, reason} -> {:error, {:json_parse_error, reason}}
-    end
-  end
-
-  defp parse_csv(data) when is_binary(data) do
-    # Simple CSV parsing - for more complex cases, consider using NimbleCSV
-    lines = String.split(data, "\n", trim: true)
-
-    case lines do
-      [header | rows] ->
-        columns = String.split(header, ",") |> Enum.map(&String.trim/1)
-
-        parsed =
-          Enum.map(rows, fn row ->
-            values = String.split(row, ",") |> Enum.map(&String.trim/1)
-            Enum.zip(columns, values) |> Map.new()
-          end)
-
-        {:ok, parsed}
-
-      [] ->
-        {:ok, []}
-    end
+  defp merge_parse_results(results) do
+    results
+    |> Enum.reduce_while({:ok, []}, fn result, {:ok, acc} ->
+      case result do
+        {:ok, items} -> {:cont, {:ok, acc ++ items}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
   end
 end

@@ -21,8 +21,6 @@ defmodule CrucibleDatasets.Loader.Math do
   alias CrucibleDatasets.Dataset
   alias CrucibleDatasets.Fetcher.HuggingFace
 
-  require Logger
-
   @datasets %{
     math_500: %{
       repo_id: "HuggingFaceH4/MATH-500",
@@ -53,7 +51,6 @@ defmodule CrucibleDatasets.Loader.Math do
     * `:split` - Dataset split (default: "test" for MATH-500, "train" for others)
     * `:config` - Subject/config for Hendrycks MATH (e.g., "algebra", "geometry")
     * `:sample_size` - Limit number of items
-    * `:synthetic` - Use synthetic data for testing (default: false)
     * `:token` - HuggingFace API token
 
   """
@@ -66,13 +63,7 @@ defmodule CrucibleDatasets.Loader.Math do
         {:error, {:unknown_dataset, dataset_name, Map.keys(@datasets)}}
 
       dataset_info ->
-        synthetic = Keyword.get(opts, :synthetic, false)
-
-        if synthetic do
-          load_synthetic(dataset_name, opts)
-        else
-          load_from_huggingface(dataset_name, dataset_info, opts)
-        end
+        load_from_huggingface(dataset_name, dataset_info, opts)
     end
   end
 
@@ -109,15 +100,7 @@ defmodule CrucibleDatasets.Loader.Math do
         {:ok, dataset}
 
       {:error, reason} ->
-        if Application.get_env(:crucible_datasets, :fallback_to_synthetic, false) do
-          Logger.warning(
-            "Failed to load #{dataset_name} from HuggingFace: #{inspect(reason)}, falling back to synthetic"
-          )
-
-          load_synthetic(dataset_name, opts)
-        else
-          {:error, {:huggingface_fetch_failed, reason}}
-        end
+        {:error, {:huggingface_fetch_failed, reason}}
     end
   end
 
@@ -210,53 +193,6 @@ defmodule CrucibleDatasets.Loader.Math do
     case Regex.run(~r/\\boxed\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/, text) do
       [_, answer] -> String.trim(answer)
       nil -> nil
-    end
-  end
-
-  defp load_synthetic(dataset_name, opts) do
-    sample_size = Keyword.get(opts, :sample_size, 20)
-
-    items = generate_synthetic_items(sample_size)
-
-    dataset =
-      Dataset.new(
-        to_string(dataset_name),
-        "1.0",
-        items,
-        %{
-          source: "synthetic",
-          license: "mit",
-          domain: "math"
-        }
-      )
-
-    {:ok, dataset}
-  end
-
-  defp generate_synthetic_items(count) do
-    problems = [
-      {"Solve for x: 2x + 5 = 13", "4", "algebra", "Level 1"},
-      {"What is the area of a circle with radius 3?", "9\\pi", "geometry", "Level 2"},
-      {"Find the derivative of f(x) = x^3 + 2x", "3x^2 + 2", "calculus", "Level 3"},
-      {"Simplify: (x + 2)(x - 2)", "x^2 - 4", "algebra", "Level 1"},
-      {"If log_2(x) = 5, what is x?", "32", "algebra", "Level 2"}
-    ]
-
-    for i <- 0..(count - 1) do
-      {problem, answer, type, level} = Enum.at(problems, rem(i, length(problems)))
-
-      %{
-        id: "math_#{i}",
-        input: %{
-          problem: problem
-        },
-        expected: answer,
-        metadata: %{
-          solution: "Solution steps... \\boxed{#{answer}}",
-          level: level,
-          type: type
-        }
-      }
     end
   end
 

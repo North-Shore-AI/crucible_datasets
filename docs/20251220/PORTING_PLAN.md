@@ -10,6 +10,10 @@ tinker cookbook experiments, including VLM image classification and OpenThoughts
 This requires a dependency-first approach: build a small set of Elixir libraries and integrate
 into CrucibleDatasets.
 
+**Status Update (2025-12-21):** Tinker parity is now implemented in crucible_datasets. Core API
+parity, DataFiles discovery, DatasetDict/IterableDataset, real MMLU/HumanEval, JSONL streaming,
+vision loaders, and image decode are complete. Source abstraction and loader macro remain deferred.
+
 ## Scope (Tinker Parity)
 - Datasets API: load_dataset, Dataset, DatasetDict, IterableDataset
 - Streaming, caching, extraction, file discovery
@@ -52,8 +56,9 @@ Built the single unified hf_hub_ex package containing all foundational capabilit
 **HfHub.Api** ✅ (dataset metadata and discovery)
 - ✅ dataset list/search
 - ✅ config enumeration (get_dataset_config_names → dataset_configs)
-- 🔲 split enumeration (get_dataset_split_names) - not yet implemented
+- ✅ split enumeration (dataset_splits)
 - ✅ file listing for repo + config
+- ✅ repo tree listing with pagination (list_repo_tree)
 - ✅ dataset metadata and info (dataset_info)
 
 **HfHub.FS** ✅ (filesystem abstraction)
@@ -74,7 +79,7 @@ Built the single unified hf_hub_ex package containing all foundational capabilit
 - ✅ file locking for concurrent access
 - ✅ LRU eviction policy
 - ✅ cache statistics and integrity validation
-- 🔲 extraction (zip, tar, gz, bz2, xz) - not yet implemented
+- ✅ extraction (zip, tar, gz, xz) implemented in hf_hub_ex v0.1.1
 
 **HfHub.Auth** ✅ (token management)
 - ✅ token storage and retrieval
@@ -83,20 +88,20 @@ Built the single unified hf_hub_ex package containing all foundational capabilit
 - ✅ whoami endpoint
 
 **Deliverables:**
-- ✅ Hex package: hf_hub v0.1.0
+- ✅ Hex package: hf_hub v0.1.1
 - ✅ Test coverage for all modules
 - ✅ Examples for common use cases
 
 ### Phase 2: Integrate hf_hub_ex into crucible_datasets ✅ COMPLETE (2025-12-21)
-- ✅ Add hf_hub dependency to crucible_datasets (v0.1.0)
+- ✅ Add hf_hub dependency to crucible_datasets (v0.1.1)
 - ✅ Refactor Fetcher.HuggingFace to use HfHub API
   - Uses HfHub.Api.list_files for file discovery
   - Uses HfHub.Download.hf_hub_download for cached downloads
   - Uses HfHub.Cache for cache queries
 - ✅ New functions: dataset_info, dataset_configs, cached?, cache_path, download_file_to_cache
-- 🔲 Extraction flows (pending hf_hub_ex extraction support)
+- 🔲 Extraction flows (hf_hub_ex v0.1.1 supports extraction; needs wiring)
 
-### Phase 3: Source Abstraction (NEW)
+### Phase 3: Source Abstraction (Deferred)
 Refactor architecture for source-agnostic design. See `architecture_review.md` for full design.
 
 **Source Layer:**
@@ -114,7 +119,7 @@ Refactor architecture for source-agnostic design. See `architecture_review.md` f
 - Migrate existing loaders to use macro
 - Loaders only define: schema, field mapping, validation
 
-### Phase 4: Dataset Types + Operations
+### Phase 4: Dataset Types + Operations ✅ COMPLETE
 See `remaining_features_design.md` for detailed specs.
 
 **DatasetDict:**
@@ -131,12 +136,12 @@ See `remaining_features_design.md` for detailed specs.
 - Add methods directly to Dataset: map, filter, shuffle, select, take, skip, batch, concat
 - Deprecate Sampler module (or make it delegate to Dataset)
 
-### Phase 5: Real Loaders
+### Phase 5: Real Loaders ✅ COMPLETE
 - Implement real MMLU loader (cais/mmlu, 57 configs)
 - Implement real HumanEval loader (openai/openai_humaneval)
 - Validate field mappings match HuggingFace schema
 
-### Phase 6: Features + Streaming
+### Phase 6: Features + Streaming ✅ COMPLETE
 **Features Schema:**
 - Value (string/int/float/bool)
 - ClassLabel (names, int2str, str2int)
@@ -147,7 +152,7 @@ See `remaining_features_design.md` for detailed specs.
 - JSONL streaming via File.stream + Format.JSONL.parse_stream
 - Parquet chunked reads via Explorer
 
-### Phase 7: Media (image-only)
+### Phase 7: Media (image-only) ✅ COMPLETE
 - MediaRef struct (path, bytes, mime, metadata)
 - Image decode via Vix/libvips
 - Tensor conversion via Nx
@@ -170,4 +175,3 @@ See `remaining_features_design.md` for detailed specs.
 - Parquet streaming is the highest-risk technical component for tinker parity.
 - Image decoding is required for VLM recipes.
 - Dataset repo quirks require robust config/split discovery.
-

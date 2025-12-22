@@ -30,8 +30,14 @@ IO.puts("")
 dataset.items
 |> Enum.take(3)
 |> Enum.each(fn item ->
+  question =
+    case item.input do
+      %{} = input_map -> input_map[:question] || input_map["question"]
+      other -> other
+    end
+
   IO.puts("ID: #{item.id}")
-  IO.puts("Question: #{String.slice(item.input.question, 0, 100)}...")
+  IO.puts("Question: #{String.slice(to_string(question), 0, 100)}...")
   IO.puts("Expected Answer: #{item.expected.answer}")
   IO.puts("Difficulty: #{item.metadata.difficulty}")
   IO.puts("")

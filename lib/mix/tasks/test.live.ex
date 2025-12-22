@@ -1,9 +1,7 @@
 defmodule Mix.Tasks.Test.Live do
-  @shortdoc "Run tests with live data sources (no synthetic fallback)"
+  @shortdoc "Run tests with live data sources"
   @moduledoc """
-  Runs the test suite against live data sources instead of synthetic data.
-
-  This disables the synthetic fallback and requires real data sources to be available.
+  Runs the test suite against live data sources.
 
   ## Usage
 
@@ -18,22 +16,34 @@ defmodule Mix.Tasks.Test.Live do
 
   ## Configuration
 
-  This task sets `fallback_to_synthetic: false` in the application config,
-  which means loaders will fail if data sources are unavailable rather than
-  silently falling back to synthetic data.
+  This task marks test mode as live so tests can opt into real data sources.
   """
 
   use Mix.Task
 
   @impl Mix.Task
   def run(args) do
-    # Set the config to disable synthetic fallback
-    Application.put_env(:crucible_datasets, :fallback_to_synthetic, false)
-
     # Also set an application env that tests can check
     Application.put_env(:crucible_datasets, :test_mode, :live)
 
     # Run the standard test task with all passed arguments
-    Mix.Task.run("test", args)
+    Mix.Task.run("test", ensure_live_include(args))
+  end
+
+  defp ensure_live_include(args) do
+    has_live =
+      args
+      |> Enum.chunk_every(2, 1, :discard)
+      |> Enum.any?(fn
+        ["--include", "live"] -> true
+        ["--only", "live"] -> true
+        _ -> false
+      end)
+
+    if has_live do
+      args
+    else
+      ["--include", "live" | args]
+    end
   end
 end
