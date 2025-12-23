@@ -237,11 +237,11 @@ defmodule CrucibleDatasets.Sampler do
   @spec train_test_split(Dataset.t(), keyword()) :: {:ok, {Dataset.t(), Dataset.t()}}
   def train_test_split(%Dataset{} = dataset, opts \\ []) do
     test_size = Keyword.get(opts, :test_size, 0.2)
-    shuffle_opt = Keyword.get(opts, :shuffle, true)
+    shuffle = Keyword.get(opts, :shuffle, true)
     seed = Keyword.get(opts, :seed, :rand.uniform(1_000_000))
 
     items =
-      if shuffle_opt do
+      if shuffle do
         :rand.seed(:exsss, {seed, seed, seed})
         Enum.shuffle(dataset.items)
       else
@@ -270,118 +270,5 @@ defmodule CrucibleDatasets.Sampler do
     }
 
     {:ok, {train_dataset, test_dataset}}
-  end
-
-  @doc """
-  Shuffle the items in a dataset.
-
-  ## Options
-    * `:seed` - Random seed for reproducibility (default: random)
-
-  ## Examples
-
-      {:ok, shuffled} = CrucibleDatasets.Sampler.shuffle(dataset, seed: 42)
-
-  """
-  @spec shuffle(Dataset.t(), keyword()) :: {:ok, Dataset.t()}
-  def shuffle(%Dataset{} = dataset, opts \\ []) do
-    seed = Keyword.get(opts, :seed, :rand.uniform(1_000_000))
-
-    :rand.seed(:exsss, {seed, seed, seed})
-
-    shuffled_items = Enum.shuffle(dataset.items)
-
-    shuffled_dataset = %{
-      dataset
-      | items: shuffled_items,
-        metadata:
-          Map.merge(dataset.metadata, %{
-            shuffled: true,
-            shuffle_seed: seed
-          })
-    }
-
-    {:ok, shuffled_dataset}
-  end
-
-  @doc """
-  Take the first n items from a dataset.
-
-  ## Examples
-
-      {:ok, subset} = CrucibleDatasets.Sampler.take(dataset, 100)
-
-  """
-  @spec take(Dataset.t(), non_neg_integer()) :: {:ok, Dataset.t()}
-  def take(%Dataset{} = dataset, n) when is_integer(n) and n >= 0 do
-    taken_items = Enum.take(dataset.items, n)
-
-    taken_dataset = %{
-      dataset
-      | name: "#{dataset.name}_take_#{n}",
-        items: taken_items,
-        metadata:
-          Map.merge(dataset.metadata, %{
-            take_n: n,
-            original_size: length(dataset.items)
-          })
-    }
-
-    {:ok, taken_dataset}
-  end
-
-  @doc """
-  Skip the first n items in a dataset.
-
-  ## Examples
-
-      {:ok, rest} = CrucibleDatasets.Sampler.skip(dataset, 100)
-
-  """
-  @spec skip(Dataset.t(), non_neg_integer()) :: {:ok, Dataset.t()}
-  def skip(%Dataset{} = dataset, n) when is_integer(n) and n >= 0 do
-    remaining_items = Enum.drop(dataset.items, n)
-
-    skipped_dataset = %{
-      dataset
-      | name: "#{dataset.name}_skip_#{n}",
-        items: remaining_items,
-        metadata:
-          Map.merge(dataset.metadata, %{
-            skip_n: n,
-            original_size: length(dataset.items)
-          })
-    }
-
-    {:ok, skipped_dataset}
-  end
-
-  @doc """
-  Filter items in a dataset by a predicate function.
-
-  ## Examples
-
-      # Keep only hard problems
-      {:ok, hard} = CrucibleDatasets.Sampler.filter(dataset, fn item ->
-        item.metadata.difficulty == "hard"
-      end)
-
-  """
-  @spec filter(Dataset.t(), (map() -> boolean())) :: {:ok, Dataset.t()}
-  def filter(%Dataset{} = dataset, predicate) when is_function(predicate, 1) do
-    filtered_items = Enum.filter(dataset.items, predicate)
-
-    filtered_dataset = %{
-      dataset
-      | name: "#{dataset.name}_filtered",
-        items: filtered_items,
-        metadata:
-          Map.merge(dataset.metadata, %{
-            filtered: true,
-            original_size: length(dataset.items)
-          })
-    }
-
-    {:ok, filtered_dataset}
   end
 end

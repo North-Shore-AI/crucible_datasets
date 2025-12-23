@@ -62,13 +62,6 @@ defmodule CrucibleDatasets do
   defdelegate load(dataset_name, opts \\ []), to: Loader
 
   @doc """
-  Load a HuggingFace dataset by repo_id.
-
-  See `CrucibleDatasets.Loader.load_dataset/2` for full documentation.
-  """
-  defdelegate load_dataset(repo_id, opts \\ []), to: Loader
-
-  @doc """
   Evaluate predictions against a dataset.
 
   See `CrucibleDatasets.Evaluator.evaluate/2` for full documentation.

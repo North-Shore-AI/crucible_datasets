@@ -2,7 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.4.1] - 2025-12-21
+## [0.5.0] - 2025-12-22
+
+### Breaking Changes
+
+This release reverts to the v0.3.0 codebase, removing the HuggingFace Hub integration that was added in v0.4.x. **Versions 0.4.0 and 0.4.1 are deprecated.**
+
+### Removed
+
+- **HuggingFace Hub Integration:**
+  - Removed `hf_hub` dependency
+  - Removed `explorer` dependency (Parquet support)
+  - Removed `vix` dependency (image processing)
+  - Removed `Source.HuggingFace` module
+  - Removed `Format.Parquet` module
+  - Removed `DatasetDict` and `IterableDataset` modules
+  - Removed Features schema system
+  - Removed streaming support
+  - Removed vision/chat/code/preference/reasoning/rubric loaders
+  - Removed `load_dataset/2` HuggingFace-style API
+
+### Retained
+
+- Core dataset management (GSM8K, HumanEval, MMLU loaders)
+- CrucibleIR `DatasetRef` integration from v0.3.0
+- Evaluation metrics (exact match, F1, BLEU, ROUGE)
+- Dataset registry and metadata
+- Result persistence and export (CSV, JSONL, Markdown, HTML)
+- Sampling strategies (random, stratified, k-fold)
+- Local JSONL file support
+- Caching with version tracking
+
+### Why This Change
+
+The HuggingFace integration was experimental and added heavy dependencies (Explorer, Vix/libvips) that complicated installation. This library returns to its focused purpose: lightweight dataset management for AI research benchmarks within the Crucible framework.
+
+---
+
+## [0.4.1] - 2025-12-21 (DEPRECATED)
 
 ### Added
 
@@ -20,7 +57,7 @@ All notable changes to this project will be documented in this file.
 - **Live Tests:** `mix test.live` uses `@tag :live`
 - **Version:** 0.4.0 -> 0.4.1
 
-## [0.4.0] - 2025-12-21
+## [0.4.0] - 2025-12-21 (DEPRECATED)
 
 ### Fixed
 

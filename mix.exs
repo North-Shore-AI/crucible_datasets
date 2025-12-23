@@ -1,7 +1,7 @@
 defmodule CrucibleDatasets.MixProject do
   use Mix.Project
 
-  @version "0.4.1"
+  @version "0.5.0"
   @source_url "https://github.com/North-Shore-AI/crucible_datasets"
 
   def project do
@@ -12,17 +12,12 @@ defmodule CrucibleDatasets.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       docs: docs(),
-      dialyzer: [plt_add_apps: [:mix]],
       description: description(),
       package: package(),
       name: "CrucibleDatasets",
       source_url: @source_url,
       homepage_url: @source_url
     ]
-  end
-
-  def cli do
-    [preferred_envs: ["test.live": :test]]
   end
 
   def application do
@@ -38,20 +33,8 @@ defmodule CrucibleDatasets.MixProject do
       {:crucible_ir, "~> 0.1.1"},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
 
-      # HuggingFace Hub client (API, downloads, caching, auth)
-      {:hf_hub, "~> 0.1.1"},
-
-      # DataFrames + Parquet support
-      {:explorer, "~> 0.11.1"},
-
-      # Image decoding (libvips)
-      {:vix, "~> 0.35"},
-
       # Documentation
-      {:ex_doc, "~> 0.38", only: :dev, runtime: false},
-
-      # Test utilities
-      {:bypass, "~> 2.1", only: :test}
+      {:ex_doc, "~> 0.38", only: :dev, runtime: false}
     ]
   end
 
@@ -79,7 +62,8 @@ defmodule CrucibleDatasets.MixProject do
   defp extras do
     [
       "README.md",
-      "CHANGELOG.md"
+      "CHANGELOG.md",
+      "LICENSE"
     ]
   end
 
