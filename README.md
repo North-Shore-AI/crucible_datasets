@@ -13,7 +13,7 @@
 
 CrucibleDatasets provides a unified interface for loading, caching, evaluating, and sampling benchmark datasets (MMLU, HumanEval, GSM8K) with support for versioning, reproducible evaluation, and custom datasets.
 
-> **Note:** v0.5.0 removes the HuggingFace Hub integration from v0.4.x. Versions 0.4.0 and 0.4.1 are deprecated. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **Note:** v0.5.1 adds inspect_ai parity features. v0.5.0 removed the HuggingFace Hub integration from v0.4.x. Versions 0.4.0 and 0.4.1 are deprecated. See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Features
 
@@ -24,6 +24,10 @@ CrucibleDatasets provides a unified interface for loading, caching, evaluating, 
 - **Result Persistence**: Save and query evaluation results
 - **Export Tools**: CSV, JSONL, Markdown, HTML export
 - **CrucibleIR Integration**: Unified dataset references via `DatasetRef`
+- **MemoryDataset**: Lightweight in-memory dataset construction
+- **Dataset Extensions**: Filter, sort, slice, and shuffle operations
+- **FieldMapping**: Declarative field mapping for flexible schema handling
+- **Generic Loader**: Load datasets from JSONL, JSON, and CSV files
 - **Extensible**: Easy integration of custom datasets and metrics
 
 ## Supported Datasets
@@ -31,7 +35,7 @@ CrucibleDatasets provides a unified interface for loading, caching, evaluating, 
 - **MMLU** (Massive Multitask Language Understanding) - 57 subjects across STEM, humanities, social sciences
 - **HumanEval** - Code generation benchmark with 164 programming problems
 - **GSM8K** - Grade school math word problems (8,500 problems)
-- **Custom Datasets** - Load from local JSONL files
+- **Custom Datasets** - Load from local JSONL, JSON, or CSV files
 
 ## Installation
 
@@ -40,7 +44,7 @@ Add `crucible_datasets` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:crucible_datasets, "~> 0.5.0"}
+    {:crucible_datasets, "~> 0.5.1"}
   ]
 end
 ```
@@ -107,6 +111,91 @@ This enables seamless integration with other Crucible components like `crucible_
 
 # Load custom dataset from file
 {:ok, custom} = CrucibleDatasets.load("my_dataset", source: "path/to/data.jsonl")
+```
+
+### In-Memory Datasets
+
+Create datasets directly from lists without files:
+
+```elixir
+alias CrucibleDatasets.MemoryDataset
+
+# Create from list of items
+dataset = MemoryDataset.from_list([
+  %{input: "What is 2+2?", expected: "4"},
+  %{input: "What is 3+3?", expected: "6"}
+])
+
+# With custom name and metadata
+dataset = MemoryDataset.from_list([
+  %{input: "Q1", expected: "A1", metadata: %{difficulty: "easy"}},
+  %{input: "Q2", expected: "A2", metadata: %{difficulty: "hard"}}
+], name: "my_dataset", version: "1.0.0")
+
+# Auto-generates IDs (item_1, item_2, ...)
+```
+
+### Generic Loader with Field Mapping
+
+Load datasets from JSONL, JSON, or CSV with declarative field mapping:
+
+```elixir
+alias CrucibleDatasets.{FieldMapping, Loader.Generic}
+
+# Define field mapping for your data schema
+mapping = FieldMapping.new(
+  input: "question",
+  expected: "answer",
+  id: "item_id",
+  metadata: ["difficulty", "subject"]
+)
+
+# Load JSONL file
+{:ok, dataset} = Generic.load("data.jsonl", fields: mapping)
+
+# Load CSV with options
+{:ok, dataset} = Generic.load("data.csv",
+  name: "my_dataset",
+  fields: mapping,
+  limit: 100,
+  shuffle: true,
+  seed: 42
+)
+
+# With transforms
+mapping = FieldMapping.new(
+  input: "question",
+  expected: "answer",
+  transforms: %{
+    input: &String.upcase/1,
+    expected: &String.to_integer/1
+  }
+)
+```
+
+### Dataset Operations
+
+Filter, sort, slice, and transform datasets:
+
+```elixir
+alias CrucibleDatasets.Dataset
+
+# Filter by predicate
+hard_items = Dataset.filter(dataset, fn item ->
+  item.metadata.difficulty == "hard"
+end)
+
+# Sort by field
+sorted = Dataset.sort(dataset, :id)                      # ascending by atom key
+sorted = Dataset.sort(dataset, :id, :desc)               # descending
+sorted = Dataset.sort(dataset, fn item -> item.metadata.score end)  # by function
+
+# Slice dataset
+first_10 = Dataset.slice(dataset, 0..9)
+middle_5 = Dataset.slice(dataset, 10, 5)
+
+# Shuffle multiple-choice options (preserves correct answer mapping)
+shuffled = Dataset.shuffle_choices(dataset, seed: 42)
 ```
 
 ### Evaluation
@@ -294,9 +383,12 @@ end
 ```
 CrucibleDatasets/
 ├── CrucibleDatasets             # Main API
-├── Dataset                      # Dataset schema
+├── Dataset                      # Dataset schema + filter/sort/slice/shuffle
+├── MemoryDataset                # In-memory dataset construction
+├── FieldMapping                 # Declarative field mapping
 ├── EvaluationResult             # Evaluation result schema
 ├── Loader/                      # Dataset loaders
+│   ├── Generic                  # Generic JSONL/JSON/CSV loader
 │   ├── MMLU                     # MMLU loader
 │   ├── HumanEval                # HumanEval loader
 │   └── GSM8K                    # GSM8K loader

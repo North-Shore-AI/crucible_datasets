@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2025-12-23
+
+### Added
+
+- **inspect_ai Parity Features:**
+  - **MemoryDataset:** New `CrucibleDatasets.MemoryDataset` module for lightweight in-memory dataset construction
+    - `from_list/2` - Create datasets from lists of items
+    - `from_samples/2` - Alias for clarity when using Sample structs
+    - Auto-ID generation for items without explicit IDs
+    - Customizable dataset name and version
+  - **Dataset Extensions:** Enhanced `CrucibleDatasets.Dataset` with new methods
+    - `filter/2` - Filter dataset items by predicate function
+    - `sort/2` and `sort/3` - Sort items by key atom or function (ascending/descending)
+    - `slice/2` and `slice/3` - Slice datasets by range or start/count
+    - `shuffle_choices/2` - Shuffle multiple-choice options while preserving correct answer mapping
+  - **FieldMapping:** New `CrucibleDatasets.FieldMapping` module for declarative field mapping
+    - `new/1` - Create field mapping specifications
+    - `apply/2` - Apply mapping to raw records
+    - Support for input/expected/id/choices/metadata field mapping
+    - Transform functions for field value processing
+    - Flexible field lookup (atom and string keys)
+  - **Generic Loader:** New `CrucibleDatasets.Loader.Generic` module
+    - Load datasets from JSONL, JSON, and CSV files
+    - Auto-format detection by file extension
+    - Field mapping support for flexible schema handling
+    - Options for limit, shuffle, auto-ID generation
+    - Reproducible shuffling with seed support
+
+### Changed
+
+- Version bump from 0.5.0 to 0.5.1
+- Enhanced field lookup to support both atom and string keys for better flexibility
+
+### Documentation
+
+- Comprehensive tests for all new modules (142 total tests, all passing)
+- API documentation for MemoryDataset, FieldMapping, and Loader.Generic
+- Updated README with version 0.5.1
+
+---
+
 ## [0.5.0] - 2025-12-22
 
 ### Breaking Changes
