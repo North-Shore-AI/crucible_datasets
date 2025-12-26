@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.3] - 2025-12-25
+
+### Changed
+
+- Bumped crucible_ir to 0.2.0
+
 ## [0.5.2] - 2025-12-25
 
 ### Added

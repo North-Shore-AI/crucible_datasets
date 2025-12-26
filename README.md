@@ -45,7 +45,7 @@ Add `crucible_datasets` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:crucible_datasets, "~> 0.5.1"}
+    {:crucible_datasets, "~> 0.5.3"}
   ]
 end
 ```
