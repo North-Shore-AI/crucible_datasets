@@ -35,6 +35,7 @@ CrucibleDatasets provides a unified interface for loading, caching, evaluating, 
 - **MMLU** (Massive Multitask Language Understanding) - 57 subjects across STEM, humanities, social sciences
 - **HumanEval** - Code generation benchmark with 164 programming problems
 - **GSM8K** - Grade school math word problems (8,500 problems)
+- **NoRobots** - Human-written instruction-response pairs for instruction-following (9,500 examples)
 - **Custom Datasets** - Load from local JSONL, JSON, or CSV files
 
 ## Installation
@@ -108,6 +109,7 @@ This enables seamless integration with other Crucible components like `crucible_
 {:ok, mmlu} = CrucibleDatasets.load(:mmlu_stem, sample_size: 200)
 {:ok, gsm8k} = CrucibleDatasets.load(:gsm8k)
 {:ok, humaneval} = CrucibleDatasets.load(:humaneval)
+{:ok, no_robots} = CrucibleDatasets.load(:no_robots, sample_size: 100)
 
 # Load custom dataset from file
 {:ok, custom} = CrucibleDatasets.load("my_dataset", source: "path/to/data.jsonl")
@@ -391,7 +393,8 @@ CrucibleDatasets/
 │   ├── Generic                  # Generic JSONL/JSON/CSV loader
 │   ├── MMLU                     # MMLU loader
 │   ├── HumanEval                # HumanEval loader
-│   └── GSM8K                    # GSM8K loader
+│   ├── GSM8K                    # GSM8K loader
+│   └── NoRobots                 # NoRobots loader
 ├── Registry                     # Dataset registry
 ├── Cache                        # Local caching
 ├── Evaluator/                   # Evaluation engine
@@ -441,6 +444,35 @@ mix test --cover
 
 ```bash
 mix dialyzer
+mix credo --strict
+```
+
+## Telemetry Events
+
+CrucibleDatasets emits telemetry events for observability:
+
+```elixir
+# Dataset loading events
+[:crucible_datasets, :load, :start]     # Loading begins
+[:crucible_datasets, :load, :stop]      # Loading completes
+[:crucible_datasets, :load, :exception] # Loading fails
+
+# Cache events
+[:crucible_datasets, :cache, :hit]      # Cache hit
+[:crucible_datasets, :cache, :miss]     # Cache miss
+```
+
+Example handler:
+
+```elixir
+:telemetry.attach(
+  "crucible-datasets-handler",
+  [:crucible_datasets, :load, :stop],
+  fn _event, measurements, metadata, _config ->
+    IO.puts("Loaded #{metadata.dataset} (#{metadata.item_count} items) in #{measurements.duration}ns")
+  end,
+  nil
+)
 ```
 
 ## Examples

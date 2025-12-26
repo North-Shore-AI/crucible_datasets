@@ -93,26 +93,7 @@ defmodule CrucibleDatasets.Sampler do
 
       # Adjust if total exceeds requested size due to rounding
       total_allocated = samples_per_stratum |> Map.values() |> Enum.sum()
-
-      samples_per_stratum =
-        if total_allocated > size do
-          # Reduce largest strata first to fit within size
-          excess = total_allocated - size
-
-          samples_per_stratum
-          |> Enum.sort_by(fn {_stratum, count} -> -count end)
-          |> Enum.reduce({%{}, excess}, fn {stratum, count}, {acc_map, remaining} ->
-            if remaining > 0 do
-              reduction = min(remaining, count)
-              {Map.put(acc_map, stratum, count - reduction), remaining - reduction}
-            else
-              {Map.put(acc_map, stratum, count), 0}
-            end
-          end)
-          |> elem(0)
-        else
-          samples_per_stratum
-        end
+      samples_per_stratum = adjust_strata_allocation(samples_per_stratum, total_allocated, size)
 
       # Sample from each stratum
       sampled_items =
@@ -270,5 +251,30 @@ defmodule CrucibleDatasets.Sampler do
     }
 
     {:ok, {train_dataset, test_dataset}}
+  end
+
+  # Adjust strata allocation if rounding caused over-allocation
+  defp adjust_strata_allocation(samples_per_stratum, total_allocated, size)
+       when total_allocated <= size do
+    samples_per_stratum
+  end
+
+  defp adjust_strata_allocation(samples_per_stratum, total_allocated, size) do
+    excess = total_allocated - size
+
+    samples_per_stratum
+    |> Enum.sort_by(fn {_stratum, count} -> -count end)
+    |> Enum.reduce({%{}, excess}, &reduce_stratum_allocation/2)
+    |> elem(0)
+  end
+
+  # Reduce allocation for a single stratum if there's remaining excess
+  defp reduce_stratum_allocation({stratum, count}, {acc_map, 0}) do
+    {Map.put(acc_map, stratum, count), 0}
+  end
+
+  defp reduce_stratum_allocation({stratum, count}, {acc_map, remaining}) do
+    reduction = min(remaining, count)
+    {Map.put(acc_map, stratum, count - reduction), remaining - reduction}
   end
 end

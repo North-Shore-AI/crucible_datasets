@@ -50,7 +50,7 @@ defmodule CrucibleDatasets do
       )
   """
 
-  alias CrucibleDatasets.{Loader, Evaluator, Sampler, Cache, Registry, ResultStore, Exporter}
+  alias CrucibleDatasets.{Cache, Evaluator, Exporter, Loader, Registry, ResultStore, Sampler}
 
   # Delegates for main API
 

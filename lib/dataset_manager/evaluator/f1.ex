@@ -17,26 +17,10 @@ defmodule CrucibleDatasets.Evaluator.F1 do
 
     common = MapSet.intersection(predicted_tokens, expected_tokens)
     common_count = MapSet.size(common)
+    pred_size = MapSet.size(predicted_tokens)
+    exp_size = MapSet.size(expected_tokens)
 
-    if common_count == 0 do
-      0.0
-    else
-      pred_size = MapSet.size(predicted_tokens)
-      exp_size = MapSet.size(expected_tokens)
-
-      if pred_size == 0 or exp_size == 0 do
-        0.0
-      else
-        precision = common_count / pred_size
-        recall = common_count / exp_size
-
-        if precision + recall == 0 do
-          0.0
-        else
-          2 * (precision * recall) / (precision + recall)
-        end
-      end
-    end
+    compute_f1_score(common_count, pred_size, exp_size)
   end
 
   # Handle map inputs (extract answer field)
@@ -84,5 +68,22 @@ defmodule CrucibleDatasets.Evaluator.F1 do
       Map.get(map, :text) || Map.get(map, "text") ||
       Map.get(map, :response) || Map.get(map, "response") ||
       to_string(map)
+  end
+
+  # Compute F1 score from counts using pattern matching to avoid nested conditionals
+  defp compute_f1_score(0, _pred_size, _exp_size), do: 0.0
+  defp compute_f1_score(_common_count, 0, _exp_size), do: 0.0
+  defp compute_f1_score(_common_count, _pred_size, 0), do: 0.0
+
+  defp compute_f1_score(common_count, pred_size, exp_size) do
+    precision = common_count / pred_size
+    recall = common_count / exp_size
+    compute_harmonic_mean(precision, recall)
+  end
+
+  defp compute_harmonic_mean(precision, recall) when precision + recall == 0, do: 0.0
+
+  defp compute_harmonic_mean(precision, recall) do
+    2 * (precision * recall) / (precision + recall)
   end
 end

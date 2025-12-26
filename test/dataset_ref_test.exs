@@ -1,7 +1,7 @@
 defmodule CrucibleDatasets.DatasetRefTest do
   use ExUnit.Case
 
-  alias CrucibleDatasets.{Dataset, Cache}
+  alias CrucibleDatasets.{Cache, Dataset}
   alias CrucibleIR.DatasetRef
 
   setup do

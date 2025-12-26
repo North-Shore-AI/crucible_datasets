@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.2] - 2025-12-25
+
+### Added
+
+- **NoRobots Loader:**
+  - New `CrucibleDatasets.Loader.NoRobots` module for instruction-following dataset
+  - Human-written instruction-response pairs (9,500 examples)
+  - Support for `:train` and `:test` splits
+  - Category metadata (Open QA, Generation, Brainstorm, Rewrite, Summarize, etc.)
+  - Comprehensive test coverage (8 tests)
+
+- **Telemetry Events:**
+  - `[:crucible_datasets, :load, :start]` - Emitted when loading begins
+  - `[:crucible_datasets, :load, :stop]` - Emitted when loading completes successfully
+  - `[:crucible_datasets, :load, :exception]` - Emitted when loading fails
+  - `[:crucible_datasets, :cache, :hit]` - Emitted on cache hit
+  - `[:crucible_datasets, :cache, :miss]` - Emitted on cache miss
+  - All events include dataset name and timing information
+
+- **Cache Eviction:**
+  - Implemented LRU-based cache eviction when cache exceeds 10GB limit
+  - Evicts oldest datasets based on modification time
+  - Frees space incrementally until under the limit
+
+- **Development Dependencies:**
+  - Added `credo ~> 1.7` for static code analysis
+  - Run `mix credo --strict` for code quality checks
+
+### Changed
+
+- Version bump from 0.5.1 to 0.5.2
+- Updated Registry with NoRobots metadata
+- Updated Loader to dispatch NoRobots requests
+- Enhanced Loader module documentation with telemetry event details
+
+### Documentation
+
+- Updated README with NoRobots dataset information
+- Added telemetry events section to README
+- Added `mix credo --strict` to static analysis commands
+- 150 tests passing (8 new for NoRobots)
+
+---
+
 ## [0.5.1] - 2025-12-23
 
 ### Added

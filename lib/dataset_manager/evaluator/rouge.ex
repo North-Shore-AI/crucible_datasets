@@ -174,15 +174,18 @@ defmodule CrucibleDatasets.Evaluator.ROUGE do
 
         lcs_length = longest_common_subsequence_length(candidate_tokens, reference_tokens)
 
+        candidate_len = length(candidate_tokens)
+        reference_len = length(reference_tokens)
+
         precision =
-          if length(candidate_tokens) == 0,
+          if candidate_len == 0,
             do: 0.0,
-            else: lcs_length / length(candidate_tokens)
+            else: lcs_length / candidate_len
 
         recall =
-          if length(reference_tokens) == 0,
+          if reference_len == 0,
             do: 0.0,
-            else: lcs_length / length(reference_tokens)
+            else: lcs_length / reference_len
 
         f1 =
           if precision + recall == 0,
@@ -239,25 +242,31 @@ defmodule CrucibleDatasets.Evaluator.ROUGE do
     dp =
       Enum.reduce(1..m, dp, fn i, acc_dp ->
         elem1 = Enum.at(seq1, i - 1)
-
-        Enum.reduce(1..n, acc_dp, fn j, inner_dp ->
-          elem2 = Enum.at(seq2, j - 1)
-
-          value =
-            if elem1 == elem2 do
-              Map.get(inner_dp, {i - 1, j - 1}, 0) + 1
-            else
-              max(
-                Map.get(inner_dp, {i - 1, j}, 0),
-                Map.get(inner_dp, {i, j - 1}, 0)
-              )
-            end
-
-          Map.put(inner_dp, {i, j}, value)
-        end)
+        fill_lcs_row(acc_dp, elem1, seq2, i, n)
       end)
 
     Map.get(dp, {m, n}, 0)
+  end
+
+  # Fill a single row of the LCS DP table
+  defp fill_lcs_row(dp, elem1, seq2, i, n) do
+    Enum.reduce(1..n, dp, fn j, inner_dp ->
+      elem2 = Enum.at(seq2, j - 1)
+      value = compute_lcs_cell(inner_dp, elem1, elem2, i, j)
+      Map.put(inner_dp, {i, j}, value)
+    end)
+  end
+
+  # Compute the value for a single cell in the LCS DP table
+  defp compute_lcs_cell(dp, elem1, elem2, i, j) when elem1 == elem2 do
+    Map.get(dp, {i - 1, j - 1}, 0) + 1
+  end
+
+  defp compute_lcs_cell(dp, _elem1, _elem2, i, j) do
+    max(
+      Map.get(dp, {i - 1, j}, 0),
+      Map.get(dp, {i, j - 1}, 0)
+    )
   end
 
   @doc """

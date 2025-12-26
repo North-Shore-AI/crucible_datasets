@@ -72,7 +72,7 @@ defmodule CrucibleDatasets.Loader.MMLU do
     items_per_subject = max(1, div(count, length(subjects)))
 
     # Use a deterministic seed for consistent checksums across loads
-    seed = Keyword.get(opts, :seed, 12345)
+    seed = Keyword.get(opts, :seed, 12_345)
     :rand.seed(:exsss, {seed, seed, seed})
 
     all_items =

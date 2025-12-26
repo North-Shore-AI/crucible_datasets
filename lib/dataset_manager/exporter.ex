@@ -355,15 +355,13 @@ defmodule CrucibleDatasets.Exporter do
       results = Map.get(grouped_results, :all, [])
       generate_single_table(results)
     else
-      grouped_results
-      |> Enum.map(fn {group_name, group_results} ->
+      Enum.map_join(grouped_results, "\n", fn {group_name, group_results} ->
         """
         ### #{group_name}
 
         #{generate_single_table(group_results)}
         """
       end)
-      |> Enum.join("\n")
     end
   end
 
@@ -378,13 +376,12 @@ defmodule CrucibleDatasets.Exporter do
   defp generate_table_rows(results) do
     results
     |> Enum.with_index(1)
-    |> Enum.map(fn {result, rank} ->
+    |> Enum.map_join("\n", fn {result, rank} ->
       accuracy_pct = Float.round(result.accuracy * 100, 2)
       date = result.timestamp |> DateTime.to_date() |> Date.to_iso8601()
 
       "| #{rank} | #{result.model} | #{result.dataset_name} | #{accuracy_pct}% | #{result.correct_items}/#{result.total_items} | #{result.duration_ms}ms | #{date} |"
     end)
-    |> Enum.join("\n")
   end
 
   defp generate_details_section(results) do
@@ -480,7 +477,7 @@ defmodule CrucibleDatasets.Exporter do
     rows =
       sorted
       |> Enum.with_index(1)
-      |> Enum.map(fn {result, rank} ->
+      |> Enum.map_join("\n", fn {result, rank} ->
         accuracy_pct = Float.round(result.accuracy * 100, 2)
         date = result.timestamp |> DateTime.to_date() |> Date.to_iso8601()
 
@@ -496,7 +493,6 @@ defmodule CrucibleDatasets.Exporter do
         </tr>
         """
       end)
-      |> Enum.join("\n")
 
     """
     <h2>Results</h2>

@@ -1,7 +1,7 @@
 defmodule CrucibleDatasets.MixProject do
   use Mix.Project
 
-  @version "0.5.1"
+  @version "0.5.2"
   @source_url "https://github.com/North-Shore-AI/crucible_datasets"
 
   def project do
@@ -32,6 +32,7 @@ defmodule CrucibleDatasets.MixProject do
       {:telemetry, "~> 1.3"},
       {:crucible_ir, "~> 0.1.1"},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
 
       # Documentation
       {:ex_doc, "~> 0.38", only: :dev, runtime: false}

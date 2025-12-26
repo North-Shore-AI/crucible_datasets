@@ -2,7 +2,7 @@ defmodule DatasetManagerTest do
   use ExUnit.Case
   doctest CrucibleDatasets
 
-  alias CrucibleDatasets.{Dataset, Cache}
+  alias CrucibleDatasets.{Cache, Dataset}
 
   setup do
     # Clear cache before each test

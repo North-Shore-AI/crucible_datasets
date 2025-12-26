@@ -8,17 +8,42 @@ defmodule CrucibleDatasets.Loader do
   - Local files
   - HTTP URLs
   - CrucibleIR.DatasetRef structs
+
+  ## Telemetry Events
+
+  The loader emits the following telemetry events:
+
+    * `[:crucible_datasets, :load, :start]` - Emitted when loading begins
+      * Measurements: `%{system_time: integer}`
+      * Metadata: `%{dataset: atom | String.t(), source: atom}`
+
+    * `[:crucible_datasets, :load, :stop]` - Emitted when loading completes
+      * Measurements: `%{duration: integer}` (native time units)
+      * Metadata: `%{dataset: atom | String.t(), source: atom, item_count: integer}`
+
+    * `[:crucible_datasets, :load, :exception]` - Emitted when loading fails
+      * Measurements: `%{duration: integer}` (native time units)
+      * Metadata: `%{dataset: atom | String.t(), source: atom, kind: atom, reason: term}`
+
+    * `[:crucible_datasets, :cache, :hit]` - Emitted on cache hit
+      * Measurements: `%{}`
+      * Metadata: `%{dataset: atom | String.t()}`
+
+    * `[:crucible_datasets, :cache, :miss]` - Emitted on cache miss
+      * Measurements: `%{}`
+      * Metadata: `%{dataset: atom | String.t()}`
   """
 
   alias CrucibleDatasets.{Cache, Dataset}
-  alias CrucibleDatasets.Loader.{MMLU, HumanEval, GSM8K}
+  alias CrucibleDatasets.Loader.{GSM8K, HumanEval, MMLU, NoRobots}
   alias CrucibleIR.DatasetRef
 
   @dataset_sources %{
     mmlu: {:huggingface, "cais/mmlu", "all"},
     mmlu_stem: {:huggingface, "cais/mmlu", "stem"},
     humaneval: {:github, "openai/human-eval", "data/HumanEval.jsonl.gz"},
-    gsm8k: {:huggingface, "gsm8k", "main"}
+    gsm8k: {:huggingface, "gsm8k", "main"},
+    no_robots: {:huggingface, "HuggingFaceH4/no_robots", "main"}
   }
 
   @doc """
@@ -51,12 +76,47 @@ defmodule CrucibleDatasets.Loader do
   def load(dataset_or_ref, opts \\ [])
 
   def load(%DatasetRef{} = ref, _opts) do
-    # Convert DatasetRef to load options
-    opts = ref.options || []
-    load(ref.name, opts)
+    # Convert DatasetRef to load options and emit telemetry
+    :telemetry.span(
+      [:crucible_datasets, :load],
+      %{dataset: ref.name, source: :dataset_ref},
+      fn ->
+        opts = ref.options || []
+        result = do_load(ref.name, opts)
+
+        case result do
+          {:ok, dataset} ->
+            {result, %{item_count: length(dataset.items)}}
+
+          {:error, _} = error ->
+            {error, %{}}
+        end
+      end
+    )
   end
 
   def load(dataset_name, opts) when is_atom(dataset_name) or is_binary(dataset_name) do
+    source_type = if is_atom(dataset_name), do: :registry, else: :local
+
+    :telemetry.span(
+      [:crucible_datasets, :load],
+      %{dataset: dataset_name, source: source_type},
+      fn ->
+        result = do_load(dataset_name, opts)
+
+        case result do
+          {:ok, dataset} ->
+            {result, %{item_count: length(dataset.items)}}
+
+          {:error, _} = error ->
+            {error, %{}}
+        end
+      end
+    )
+  end
+
+  # Internal load implementation
+  defp do_load(dataset_name, opts) do
     use_cache = Keyword.get(opts, :cache, true)
     sample_size = Keyword.get(opts, :sample_size)
 
@@ -65,9 +125,21 @@ defmodule CrucibleDatasets.Loader do
     # Try to load from cache first
     case use_cache && Cache.get(cache_key) do
       {:ok, dataset} ->
+        :telemetry.execute(
+          [:crucible_datasets, :cache, :hit],
+          %{},
+          %{dataset: dataset_name}
+        )
+
         {:ok, maybe_sample(dataset, sample_size)}
 
       _ ->
+        :telemetry.execute(
+          [:crucible_datasets, :cache, :miss],
+          %{},
+          %{dataset: dataset_name}
+        )
+
         with {:ok, source_spec} <- resolve_source(dataset_name, opts),
              {:ok, dataset} <- fetch_and_parse(source_spec, dataset_name, opts),
              {:ok, validated} <- Dataset.validate(dataset) do
@@ -131,6 +203,9 @@ defmodule CrucibleDatasets.Loader do
 
       :gsm8k ->
         GSM8K.load(opts)
+
+      :no_robots ->
+        NoRobots.load(opts)
 
       _ ->
         load_custom(dataset_name, source_spec, opts)

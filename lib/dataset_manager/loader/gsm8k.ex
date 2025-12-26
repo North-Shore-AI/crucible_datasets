@@ -84,10 +84,9 @@ defmodule CrucibleDatasets.Loader.GSM8K do
   defp generate_reasoning(_question, answer, steps) do
     # Generate a simple reasoning chain
     reasoning_steps =
-      Enum.map(1..steps, fn i ->
+      Enum.map_join(1..steps, "\n", fn i ->
         "Step #{i}: Calculate intermediate value"
       end)
-      |> Enum.join("\n")
 
     """
     #{reasoning_steps}

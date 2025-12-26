@@ -9,7 +9,7 @@ defmodule CrucibleDatasets.Evaluator do
   """
 
   alias CrucibleDatasets.{Dataset, EvaluationResult, Loader}
-  alias CrucibleDatasets.Evaluator.{ExactMatch, F1, BLEU, ROUGE}
+  alias CrucibleDatasets.Evaluator.{BLEU, ExactMatch, F1, ROUGE}
 
   @type prediction :: %{
           id: String.t(),
@@ -213,7 +213,7 @@ defmodule CrucibleDatasets.Evaluator do
       metrics
       |> Enum.map(fn metric ->
         scores = Enum.map(item_results, fn item -> item.metrics[metric] || 0.0 end)
-        avg_score = if length(scores) > 0, do: Enum.sum(scores) / length(scores), else: 0.0
+        avg_score = if scores != [], do: Enum.sum(scores) / length(scores), else: 0.0
         {metric, avg_score}
       end)
       |> Map.new()

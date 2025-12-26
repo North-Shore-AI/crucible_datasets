@@ -56,9 +56,8 @@ defmodule CrucibleDatasets.Cache do
     with :ok <- ensure_cache_dir(cache_path),
          :ok <- enforce_cache_limits(),
          :ok <- write_data(cache_path, dataset),
-         :ok <- write_metadata(cache_path, dataset),
-         :ok <- update_manifest(cache_key, dataset) do
-      :ok
+         :ok <- write_metadata(cache_path, dataset) do
+      update_manifest(cache_key, dataset)
     end
   end
 
@@ -136,38 +135,28 @@ defmodule CrucibleDatasets.Cache do
   end
 
   defp calculate_cache_size do
-    if File.exists?(@cache_dir) do
-      case File.ls(@cache_dir) do
-        {:ok, dirs} ->
-          dirs
-          |> Enum.map(fn dir ->
-            path = Path.join(@cache_dir, dir)
-            get_dir_size(path)
-          end)
-          |> Enum.sum()
-          |> Kernel./(1024 * 1024)
-
-        _ ->
-          0
-      end
+    with true <- File.exists?(@cache_dir),
+         {:ok, dirs} <- File.ls(@cache_dir) do
+      dirs
+      |> Enum.map(&get_subdir_size/1)
+      |> Enum.sum()
+      |> Kernel./(1024 * 1024)
     else
-      0
+      _ -> 0
     end
+  end
+
+  defp get_subdir_size(dir) do
+    @cache_dir
+    |> Path.join(dir)
+    |> get_dir_size()
   end
 
   defp get_dir_size(path) do
     case File.ls(path) do
       {:ok, files} ->
         files
-        |> Enum.map(fn file ->
-          file_path = Path.join(path, file)
-
-          case File.stat(file_path) do
-            {:ok, %{size: size, type: :regular}} -> size
-            {:ok, %{type: :directory}} -> get_dir_size(file_path)
-            _ -> 0
-          end
-        end)
+        |> Enum.map(&get_file_size(path, &1))
         |> Enum.sum()
 
       _ ->
@@ -175,10 +164,64 @@ defmodule CrucibleDatasets.Cache do
     end
   end
 
-  defp evict_oldest_datasets(_size_to_free) do
-    # Simple eviction: remove oldest datasets based on modified time
-    # In a real implementation, this would be more sophisticated
-    :ok
+  defp get_file_size(parent_path, file) do
+    file_path = Path.join(parent_path, file)
+
+    case File.stat(file_path) do
+      {:ok, %{size: size, type: :regular}} -> size
+      {:ok, %{type: :directory}} -> get_dir_size(file_path)
+      _ -> 0
+    end
+  end
+
+  defp evict_oldest_datasets(size_to_free) do
+    # LRU-based eviction: remove oldest datasets based on modified time
+    case File.ls(@cache_dir) do
+      {:ok, dirs} ->
+        dirs
+        |> filter_cache_directories()
+        |> collect_dir_metadata()
+        |> Enum.sort_by(fn {_, mtime, _} -> mtime end)
+        |> evict_until_freed(size_to_free)
+
+        :ok
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp filter_cache_directories(dirs) do
+    Enum.filter(dirs, fn entry ->
+      path = Path.join(@cache_dir, entry)
+      File.dir?(path) and entry != "manifest.json"
+    end)
+  end
+
+  defp collect_dir_metadata(dirs) do
+    Enum.map(dirs, fn dir ->
+      path = Path.join(@cache_dir, dir)
+      mtime = get_mtime(path)
+      {path, mtime, get_dir_size(path)}
+    end)
+  end
+
+  defp get_mtime(path) do
+    case File.stat(path) do
+      {:ok, stat} -> stat.mtime
+      _ -> {{1970, 1, 1}, {0, 0, 0}}
+    end
+  end
+
+  defp evict_until_freed(dirs_with_meta, size_to_free) do
+    Enum.reduce_while(dirs_with_meta, 0, fn {path, _, size}, freed ->
+      if freed >= size_to_free do
+        {:halt, freed}
+      else
+        File.rm_rf(path)
+        {:cont, freed + size}
+      end
+    end)
   end
 
   defp write_data(cache_path, dataset) do
@@ -233,9 +276,8 @@ defmodule CrucibleDatasets.Cache do
 
     updated = Map.put(existing, "datasets", datasets)
 
-    with :ok <- File.mkdir_p(@cache_dir),
-         :ok <- File.write(manifest_path, Jason.encode!(updated, pretty: true)) do
-      :ok
+    with :ok <- File.mkdir_p(@cache_dir) do
+      File.write(manifest_path, Jason.encode!(updated, pretty: true))
     end
   end
 

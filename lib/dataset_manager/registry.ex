@@ -25,7 +25,7 @@ defmodule CrucibleDatasets.Registry do
       [:mmlu, :mmlu_stem, :gsm8k]
   """
 
-  alias CrucibleDatasets.Loader.{MMLU, HumanEval, GSM8K}
+  alias CrucibleDatasets.Loader.{GSM8K, HumanEval, MMLU, NoRobots}
 
   @type dataset_name :: atom()
   @type dataset_metadata :: %{
@@ -51,7 +51,7 @@ defmodule CrucibleDatasets.Registry do
       task_type: "multiple_choice_qa",
       description:
         "Massive Multitask Language Understanding - 57 subjects across STEM, humanities, and social sciences",
-      num_items: 15908,
+      num_items: 15_908,
       license: "MIT",
       source_url: "https://huggingface.co/datasets/cais/mmlu",
       citation: "Hendrycks et al., 2021",
@@ -110,6 +110,21 @@ defmodule CrucibleDatasets.Registry do
       languages: ["en"],
       difficulty: "medium",
       tags: ["math", "reasoning", "word_problems", "arithmetic"]
+    },
+    no_robots: %{
+      name: :no_robots,
+      loader: NoRobots,
+      domain: "instruction_following",
+      task_type: "text_generation",
+      description:
+        "Human-written instruction-response pairs for training instruction-following models",
+      num_items: 9500,
+      license: "Apache-2.0",
+      source_url: "https://huggingface.co/datasets/HuggingFaceH4/no_robots",
+      citation: "HuggingFace H4, 2023",
+      languages: ["en"],
+      difficulty: "medium",
+      tags: ["instruction", "generation", "chat", "assistant"]
     }
   }
 

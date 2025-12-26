@@ -24,7 +24,13 @@ defmodule CrucibleDatasets.DelegatesTest do
   end
 
   test "delegates to registry" do
-    assert Enum.sort(CrucibleDatasets.list_available()) == [:gsm8k, :humaneval, :mmlu, :mmlu_stem]
+    assert Enum.sort(CrucibleDatasets.list_available()) == [
+             :gsm8k,
+             :humaneval,
+             :mmlu,
+             :mmlu_stem,
+             :no_robots
+           ]
 
     metadata = CrucibleDatasets.get_metadata(:mmlu)
     assert metadata.name == :mmlu

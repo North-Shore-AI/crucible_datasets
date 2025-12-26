@@ -1,206 +1,203 @@
-<svg width="200" height="240" viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Primary gradient - deep purple to violet -->
+    <!-- Primary gradient - Fresh green to cyan -->
     <linearGradient id="hexGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#7B2CBF"/>
-      <stop offset="50%" stop-color="#9D4EDD"/>
-      <stop offset="100%" stop-color="#C77DFF"/>
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="50%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#0891B2"/>
     </linearGradient>
 
-    <!-- Radial glow for center -->
-    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#E0AAFF" stop-opacity="0.6"/>
-      <stop offset="70%" stop-color="#9D4EDD" stop-opacity="0.2"/>
-      <stop offset="100%" stop-color="#5A189A" stop-opacity="0"/>
+    <!-- Accent gradient - Cyan to teal -->
+    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#0D9488"/>
+    </linearGradient>
+
+    <!-- Data layer gradient - Green with transparency -->
+    <linearGradient id="layerGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#059669" stop-opacity="0.6"/>
+    </linearGradient>
+
+    <!-- Glow gradient - Cyan centered -->
+    <radialGradient id="glowGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#06B6D4" stop-opacity="0.5"/>
+      <stop offset="70%" stop-color="#10B981" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#0D9488" stop-opacity="0"/>
     </radialGradient>
 
-    <!-- Accent gradient for data nodes -->
-    <linearGradient id="nodeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.95"/>
-      <stop offset="100%" stop-color="#E0AAFF" stop-opacity="0.8"/>
+    <!-- Data flow gradient -->
+    <linearGradient id="flowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06B6D4" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#10B981" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#06B6D4" stop-opacity="0"/>
     </linearGradient>
 
-    <!-- Glass morphism gradient -->
-    <linearGradient id="glassGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.25"/>
-      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.05"/>
-    </linearGradient>
-
-    <!-- Shimmer effect gradient -->
-    <linearGradient id="shimmer" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0.3"/>
+    <!-- Glass/shine overlay -->
+    <linearGradient id="shineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.35"/>
+      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0.05"/>
       <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
     </linearGradient>
 
     <!-- Drop shadow filter -->
-    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#3C096C" flood-opacity="0.4"/>
+    <filter id="dropShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#065F46" flood-opacity="0.3"/>
     </filter>
 
-    <!-- Inner glow filter -->
-    <filter id="innerGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur"/>
-      <feOffset dx="0" dy="0"/>
-      <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1"/>
-      <feColorMatrix type="matrix" values="0 0 0 0 0.878  0 0 0 0 0.667  0 0 0 0 1  0 0 0 0.6 0"/>
-      <feBlend in2="SourceGraphic"/>
+    <!-- Glow filter for data layers -->
+    <filter id="layerGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.5"/>
     </filter>
 
-    <!-- Soft blur for depth layers -->
+    <!-- Soft blur for depth -->
     <filter id="softBlur">
-      <feGaussianBlur stdDeviation="1"/>
+      <feGaussianBlur stdDeviation="0.8"/>
     </filter>
 
-    <!-- Noise texture -->
-    <filter id="noise">
-      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" result="noise"/>
-      <feColorMatrix type="saturate" values="0"/>
-      <feBlend in="SourceGraphic" in2="noise" mode="overlay" result="blend"/>
-      <feComposite in="blend" in2="SourceGraphic" operator="in"/>
-    </filter>
-
-    <!-- Hexagon clip path -->
+    <!-- Hexagon clip path - 200x200 viewBox -->
     <clipPath id="hexClip">
-      <path d="M 100,8 L 188,64 L 188,176 L 100,232 L 12,176 L 12,64 Z"/>
+      <path d="M 100,10 L 185,57.5 L 185,142.5 L 100,190 L 15,142.5 L 15,57.5 Z"/>
     </clipPath>
-
-    <!-- Data cube pattern -->
-    <pattern id="cubePattern" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
-      <path d="M12,2 L22,8 L22,18 L12,24 L2,18 L2,8 Z" fill="none" stroke="#FFFFFF" stroke-width="0.5" opacity="0.1"/>
-    </pattern>
   </defs>
 
   <!-- Outer glow layer -->
-  <path d="M 100,5 L 192,63 L 192,177 L 100,235 L 8,177 L 8,63 Z"
-        fill="#9D4EDD" opacity="0.3" filter="url(#softBlur)"/>
+  <path d="M 100,8 L 187,56 L 187,144 L 100,192 L 13,144 L 13,56 Z"
+        fill="#10B981" opacity="0.25" filter="url(#softBlur)"/>
 
   <!-- Main hexagon with gradient -->
-  <path d="M 100,8 L 188,64 L 188,176 L 100,232 L 12,176 L 12,64 Z"
+  <path d="M 100,10 L 185,57.5 L 185,142.5 L 100,190 L 15,142.5 L 15,57.5 Z"
         fill="url(#hexGradient)"
         filter="url(#dropShadow)"/>
 
-  <!-- Subtle pattern overlay -->
-  <path d="M 100,8 L 188,64 L 188,176 L 100,232 L 12,176 L 12,64 Z"
-        fill="url(#cubePattern)"
-        opacity="0.4"/>
+  <!-- Hexagon border accent -->
+  <path d="M 100,10 L 185,57.5 L 185,142.5 L 100,190 L 15,142.5 L 15,57.5 Z"
+        fill="none"
+        stroke="#FFFFFF"
+        stroke-width="1.5"
+        opacity="0.5"/>
 
-  <!-- Inner hexagon rings - depth effect -->
-  <path d="M 100,28 L 168,72 L 168,168 L 100,212 L 32,168 L 32,72 Z"
-        fill="none" stroke="#FFFFFF" stroke-width="0.75" opacity="0.15"/>
+  <!-- Inner hexagon ring - depth -->
+  <path d="M 100,25 L 170,65 L 170,135 L 100,175 L 30,135 L 30,65 Z"
+        fill="none" stroke="#FFFFFF" stroke-width="0.8" opacity="0.2"/>
 
-  <path d="M 100,45 L 150,80 L 150,160 L 100,195 L 50,160 L 50,80 Z"
-        fill="none" stroke="#FFFFFF" stroke-width="0.5" opacity="0.1"/>
+  <!-- Central radial glow -->
+  <circle cx="100" cy="100" r="60" fill="url(#glowGradient)"/>
 
-  <!-- Central glow -->
-  <ellipse cx="100" cy="120" rx="55" ry="55" fill="url(#centerGlow)"/>
+  <!-- === STACKED DATA LAYERS === -->
 
-  <!-- === INTRICATE DATA STRUCTURE DESIGN === -->
-
-  <!-- Data layers - stacked planes representing dataset structure -->
-  <g opacity="0.9">
-    <!-- Bottom layer -->
-    <path d="M 60,155 L 100,175 L 140,155 L 140,150 L 100,170 L 60,150 Z"
-          fill="url(#nodeGradient)" opacity="0.4"/>
-    <path d="M 60,150 L 100,170 L 140,150 L 100,130 Z"
-          fill="url(#nodeGradient)" opacity="0.5"/>
-
-    <!-- Middle layer -->
-    <path d="M 60,135 L 100,155 L 140,135 L 140,130 L 100,150 L 60,130 Z"
-          fill="url(#nodeGradient)" opacity="0.6"/>
-    <path d="M 60,130 L 100,150 L 140,130 L 100,110 Z"
-          fill="url(#nodeGradient)" opacity="0.7"/>
-
-    <!-- Top layer -->
-    <path d="M 60,115 L 100,135 L 140,115 L 140,110 L 100,130 L 60,110 Z"
-          fill="url(#nodeGradient)" opacity="0.8"/>
-    <path d="M 60,110 L 100,130 L 140,110 L 100,90 Z"
-          fill="url(#nodeGradient)" opacity="0.95"/>
+  <!-- Bottom data layer (GSM8K) -->
+  <g opacity="0.85">
+    <path d="M 55,140 L 100,165 L 145,140 L 145,135 L 100,160 L 55,135 Z"
+          fill="url(#layerGradient)" filter="url(#layerGlow)"/>
+    <!-- Table grid pattern for GSM8K -->
+    <g stroke="#FFFFFF" stroke-width="0.5" opacity="0.3">
+      <line x1="70" y1="140" x2="130" y2="140"/>
+      <line x1="68" y1="148" x2="132" y2="148"/>
+      <line x1="72" y1="156" x2="128" y2="156"/>
+    </g>
   </g>
 
-  <!-- Data flow lines - connecting elements -->
-  <g stroke="#FFFFFF" stroke-linecap="round" fill="none">
-    <!-- Vertical connectors -->
-    <line x1="100" y1="90" x2="100" y2="70" stroke-width="2" opacity="0.8"/>
-    <line x1="80" y1="100" x2="65" y2="85" stroke-width="1.5" opacity="0.5"/>
-    <line x1="120" y1="100" x2="135" y2="85" stroke-width="1.5" opacity="0.5"/>
-
-    <!-- Flowing curves - data streams -->
-    <path d="M 45,95 Q 55,110 50,130" stroke-width="1" opacity="0.3"/>
-    <path d="M 155,95 Q 145,110 150,130" stroke-width="1" opacity="0.3"/>
-    <path d="M 50,165 Q 75,180 100,185" stroke-width="1" opacity="0.25"/>
-    <path d="M 150,165 Q 125,180 100,185" stroke-width="1" opacity="0.25"/>
+  <!-- Middle data layer (HumanEval) -->
+  <g opacity="0.88">
+    <path d="M 55,120 L 100,145 L 145,120 L 145,115 L 100,140 L 55,115 Z"
+          fill="url(#accentGradient)" filter="url(#layerGlow)"/>
+    <!-- Code/function symbols for HumanEval -->
+    <g stroke="#FFFFFF" stroke-width="0.6" fill="none" opacity="0.25">
+      <path d="M 78,122 L 82,125 L 78,128"/>
+      <path d="M 118,122 L 122,125 L 118,128"/>
+      <line x1="85" y1="120" x2="115" y2="130"/>
+    </g>
   </g>
 
-  <!-- Data nodes - floating points representing data elements -->
-  <g fill="#FFFFFF">
-    <!-- Primary nodes -->
-    <circle cx="100" cy="65" r="5" opacity="0.95">
-      <animate attributeName="opacity" values="0.95;0.6;0.95" dur="3s" repeatCount="indefinite"/>
-    </circle>
-    <circle cx="65" cy="80" r="3.5" opacity="0.7"/>
-    <circle cx="135" cy="80" r="3.5" opacity="0.7"/>
-
-    <!-- Secondary nodes -->
-    <circle cx="45" cy="100" r="2.5" opacity="0.5"/>
-    <circle cx="155" cy="100" r="2.5" opacity="0.5"/>
-    <circle cx="40" cy="140" r="2" opacity="0.35"/>
-    <circle cx="160" cy="140" r="2" opacity="0.35"/>
-
-    <!-- Micro nodes - data particles -->
-    <circle cx="55" cy="70" r="1.5" opacity="0.4"/>
-    <circle cx="145" cy="70" r="1.5" opacity="0.4"/>
-    <circle cx="75" cy="55" r="1.5" opacity="0.3"/>
-    <circle cx="125" cy="55" r="1.5" opacity="0.3"/>
-    <circle cx="100" cy="195" r="2" opacity="0.4"/>
+  <!-- Top data layer (MMLU) -->
+  <g opacity="0.92">
+    <path d="M 55,100 L 100,125 L 145,100 L 145,95 L 100,120 L 55,95 Z"
+          fill="url(#layerGradient)" filter="url(#layerGlow)"/>
+    <!-- Question marks for MMLU -->
+    <g fill="#FFFFFF" opacity="0.3" font-size="10" font-weight="bold" text-anchor="middle">
+      <text x="85" y="108">?</text>
+      <text x="115" y="108">?</text>
+    </g>
   </g>
 
-  <!-- Interconnection lines between nodes -->
-  <g stroke="#FFFFFF" stroke-width="0.75" fill="none" opacity="0.4">
-    <line x1="100" y1="65" x2="65" y2="80"/>
-    <line x1="100" y1="65" x2="135" y2="80"/>
-    <line x1="65" y1="80" x2="45" y2="100"/>
-    <line x1="135" y1="80" x2="155" y2="100"/>
-    <line x1="45" y1="100" x2="40" y2="140"/>
-    <line x1="155" y1="100" x2="160" y2="140"/>
+  <!-- === DATA FLOW ELEMENTS === -->
+
+  <!-- Flowing data streams - animated visual -->
+  <g stroke="url(#flowGradient)" stroke-width="1.5" fill="none" stroke-linecap="round">
+    <!-- Left data inflow -->
+    <path d="M 30,100 Q 45,90 60,95"/>
+    <path d="M 35,110 Q 50,105 65,115"/>
+
+    <!-- Right data inflow -->
+    <path d="M 170,100 Q 155,90 140,95"/>
+    <path d="M 165,110 Q 150,105 135,115"/>
+
+    <!-- Top connection to evaluation -->
+    <path d="M 100,75 L 100,60" stroke="#06B6D4" stroke-width="1" opacity="0.5"/>
   </g>
 
-  <!-- Hexagonal micro-structure pattern in corners -->
-  <g fill="none" stroke="#FFFFFF" stroke-width="0.5">
-    <!-- Top region -->
-    <path d="M 100,35 L 108,40 L 108,50 L 100,55 L 92,50 L 92,40 Z" opacity="0.2"/>
+  <!-- === DATA NODES === -->
 
-    <!-- Left region -->
-    <path d="M 35,90 L 43,95 L 43,105 L 35,110 L 27,105 L 27,95 Z" opacity="0.15"/>
-    <path d="M 35,140 L 43,145 L 43,155 L 35,160 L 27,155 L 27,145 Z" opacity="0.12"/>
+  <!-- Primary center node (evaluation metrics hub) -->
+  <circle cx="100" cy="75" r="6" fill="url(#accentGradient)" opacity="0.95" filter="url(#layerGlow)"/>
+  <circle cx="100" cy="75" r="6" fill="none" stroke="#FFFFFF" stroke-width="1" opacity="0.4"/>
 
-    <!-- Right region -->
-    <path d="M 165,90 L 173,95 L 173,105 L 165,110 L 157,105 L 157,95 Z" opacity="0.15"/>
-    <path d="M 165,140 L 173,145 L 173,155 L 165,160 L 157,155 L 157,145 Z" opacity="0.12"/>
+  <!-- Dataset nodes around center -->
+  <g fill="#FFFFFF" opacity="0.8">
+    <!-- GSM8K node -->
+    <circle cx="65" cy="95" r="3.5"/>
+    <!-- HumanEval node -->
+    <circle cx="135" cy="95" r="3.5"/>
+    <!-- MMLU node -->
+    <circle cx="70" cy="50" r="2.5" opacity="0.6"/>
+    <!-- NoRobots node -->
+    <circle cx="130" cy="50" r="2.5" opacity="0.6"/>
   </g>
 
-  <!-- Glass reflection overlay -->
-  <path d="M 100,8 L 188,64 L 188,100 L 100,75 L 12,100 L 12,64 Z"
-        fill="url(#glassGradient)"
+  <!-- Data node connections -->
+  <g stroke="#FFFFFF" stroke-width="0.7" fill="none" opacity="0.35">
+    <line x1="100" y1="75" x2="65" y2="95"/>
+    <line x1="100" y1="75" x2="135" y2="95"/>
+    <line x1="100" y1="75" x2="70" y2="50"/>
+    <line x1="100" y1="75" x2="130" y2="50"/>
+  </g>
+
+  <!-- Micro data particles -->
+  <g fill="#06B6D4" opacity="0.5">
+    <circle cx="45" cy="85" r="1.5"/>
+    <circle cx="155" cy="85" r="1.5"/>
+    <circle cx="50" cy="130" r="1"/>
+    <circle cx="150" cy="130" r="1"/>
+    <circle cx="80" cy="170" r="1.2"/>
+    <circle cx="120" cy="170" r="1.2"/>
+  </g>
+
+  <!-- === EVALUATION METRICS INDICATOR === -->
+
+  <!-- Metrics symbol at top (BLEU, ROUGE, F1) -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="0.6" opacity="0.4">
+    <!-- Left metric bar -->
+    <rect x="80" y="35" width="2" height="12"/>
+    <!-- Center metric bar -->
+    <rect x="99" y="30" width="2" height="17"/>
+    <!-- Right metric bar -->
+    <rect x="118" y="38" width="2" height="9"/>
+    <!-- Baseline -->
+    <line x1="78" y1="48" x2="122" y2="48"/>
+  </g>
+
+  <!-- === SHINE & POLISH === -->
+
+  <!-- Shine/reflection overlay -->
+  <path d="M 100,10 L 185,57.5 L 185,100 L 100,60 L 15,100 L 15,57.5 Z"
+        fill="url(#shineGradient)"
         clip-path="url(#hexClip)"/>
 
-  <!-- Edge highlight - premium finish -->
-  <path d="M 100,8 L 188,64 L 188,176 L 100,232 L 12,176 L 12,64 Z"
-        fill="none"
-        stroke="url(#shimmer)"
-        stroke-width="1.5"/>
-
-  <!-- Outer border - crisp edge -->
-  <path d="M 100,8 L 188,64 L 188,176 L 100,232 L 12,176 L 12,64 Z"
-        fill="none"
-        stroke="#FFFFFF"
-        stroke-width="2"
-        opacity="0.6"/>
-
   <!-- Inner accent border -->
-  <path d="M 100,12 L 184,66 L 184,174 L 100,228 L 16,174 L 16,66 Z"
+  <path d="M 100,14 L 182,59 L 182,141 L 100,186 L 18,141 L 18,59 Z"
         fill="none"
         stroke="#FFFFFF"
-        stroke-width="0.5"
-        opacity="0.2"/>
+        stroke-width="0.4"
+        opacity="0.15"/>
 </svg>
