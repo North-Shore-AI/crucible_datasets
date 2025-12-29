@@ -9,9 +9,15 @@
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-purple.svg)](https://hexdocs.pm/crucible_datasets)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/North-Shore-AI/crucible_datasets/blob/main/LICENSE)
 
-**Lightweight dataset management library for AI evaluation research in Elixir.**
+**HuggingFace dataset integration and evaluation workflows for ML research in Elixir.**
 
-CrucibleDatasets provides a unified interface for loading, caching, evaluating, and sampling benchmark datasets (MMLU, HumanEval, GSM8K) with support for versioning, reproducible evaluation, and custom datasets.
+CrucibleDatasets integrates with `hf_datasets_ex` to provide access to HuggingFace benchmark datasets (MMLU, HumanEval, GSM8K, NoRobots) along with comprehensive evaluation metrics (Exact Match, F1, BLEU, ROUGE) and sampling strategies for reproducible ML evaluation.
+
+> **Note on Dataset Libraries**: NSAI has two dataset libraries with distinct purposes:
+> - **datasets_ex**: For NSAI's own custom/internal/proprietary datasets with full versioning and lineage
+> - **crucible_datasets** (this library): For integrating external HuggingFace datasets via `hf_datasets_ex` plus evaluation workflows
+>
+> Use `crucible_datasets` when working with standard ML benchmarks and evaluation. Use `datasets_ex` when creating and managing your own datasets.
 
 > **Note:** v0.5.1 adds inspect_ai parity features. v0.5.0 removed the HuggingFace Hub integration from v0.4.x. Versions 0.4.0 and 0.4.1 are deprecated. See [CHANGELOG.md](CHANGELOG.md) for details.
 
