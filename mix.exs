@@ -35,7 +35,7 @@ defmodule CrucibleDatasets.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
 
       # Documentation
-      {:ex_doc, "~> 0.38", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.40.0", only: :dev, runtime: false}
     ]
   end
 
@@ -114,7 +114,7 @@ defmodule CrucibleDatasets.MixProject do
     [
       name: "crucible_datasets",
       description: description(),
-      files: ~w(lib mix.exs README.md CHANGELOG.md LICENSE),
+      files: ~w(lib assets mix.exs README.md CHANGELOG.md LICENSE),
       licenses: ["MIT"],
       links: %{
         "GitHub" => @source_url,
