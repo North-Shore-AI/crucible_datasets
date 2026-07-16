@@ -29,13 +29,13 @@ defmodule CrucibleDatasets.MixProject do
   defp deps do
     [
       {:jason, "~> 1.4"},
-      {:telemetry, "~> 1.3"},
-      {:crucible_ir, "~> 0.2.1"},
+      {:telemetry, "~> 1.4"},
+      {:crucible_ir, "~> 0.3.0"},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
 
       # Documentation
-      {:ex_doc, "~> 0.40.0", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.40.3", only: :dev, runtime: false}
     ]
   end
 
